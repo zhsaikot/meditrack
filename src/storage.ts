@@ -117,3 +117,10 @@ export function getTodayMood(): MoodEntry | null {
   const today = new Date().toISOString().split('T')[0];
   return getMoodEntries().find(e => e.date === today) || null;
 }
+// Add this function to storage.ts
+
+export function deleteMedicine(id: string): void {
+  const medicines = getMedicines();
+  const filtered = medicines.filter(m => m.id !== id);
+  saveMedicines(filtered);
+}

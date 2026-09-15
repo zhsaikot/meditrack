@@ -267,3 +267,131 @@ textarea {
   margin-bottom: 15px;
   box-sizing: border-box;
 }
+/* Header Styles */
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.icon-btn {
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+/* Statistics Card */
+.stats-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.stats-card h2 {
+  color: white;
+  border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+/* Medicine Actions */
+.med-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.delete-btn {
+  background: #FEE2E2;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.delete-btn:hover {
+  background: #FECACA;
+  transform: scale(1.1);
+}
+
+/* Dark Mode */
+.dark-mode {
+  --bg-primary: #0F172A;
+  --bg-card: #1E293B;
+  --text-main: #F1F5F9;
+  --text-muted: #94A3B8;
+  --border-color: #334155;
+}
+
+.dark-mode body {
+  background-color: var(--bg-primary);
+}
+
+.dark-mode .card {
+  background: var(--bg-card);
+}
+
+.dark-mode .water-card {
+  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+}
+
+.dark-mode .stats-card {
+  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .main-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+}
