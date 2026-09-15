@@ -1,122 +1,119 @@
-// MediTrack - LocalStorage Helper Functions
+// src/storage.ts
+import { Medicine } from './types';
 
-import { AppData, DEFAULT_DATA } from './types';
+const MEDICINE_KEY = 'meditrack_medicines';
 
-const STORAGE_KEY = 'meditrack_data';
-
-export function loadAppData(): AppData {
+// Load medicines from LocalStorage
+export function getMedicines(): Medicine[] {
+  const data = localStorage.getItem(MEDICINE_KEY);
+  if (!data) return [];
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as AppData;
-      // Merge with defaults to ensure all fields exist
-      return {
-        ...DEFAULT_DATA,
-        ...parsed,
-        settings: { ...DEFAULT_DATA.settings, ...parsed.settings },
-      };
-    }
+    return JSON.parse(data);
   } catch (error) {
-    console.error('Failed to load data from localStorage:', error);
+    console.error("Failed to parse medicines", error);
+    return [];
   }
-  return { ...DEFAULT_DATA };
 }
 
-export function saveAppData(data: AppData): void {
+// Save medicines to LocalStorage
+export function saveMedicines(medicines: Medicine[]): void {
+  localStorage.setItem(MEDICINE_KEY, JSON.stringify(medicines));
+}
+
+// Add a new medicine
+export function addMedicine(med: Medicine): void {
+  const medicines = getMedicines();
+  medicines.push(med);
+  saveMedicines(medicines);
+}
+
+// Toggle the "taken" status of a medicine
+export function toggleMedicine(id: string): void {
+  const medicines = getMedicines();
+  const index = medicines.findIndex(m => m.id === id);
+  if (index !== -1) {
+    medicines[index].taken = !medicines[index].taken;
+    saveMedicines(medicines);
+  }
+}
+
+// src/storage.ts - ADD THIS AT THE BOTTOM
+
+const WATER_KEY = 'meditrack_water';
+
+// Get today's water amount
+export function getTodayWater(): number {
+  const today = new Date().toDateString();
+  const data = localStorage.getItem(WATER_KEY);
+  if (!data) return 0;
+  
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (error) {
-    console.error('Failed to save data to localStorage:', error);
+    const parsed = JSON.parse(data);
+    if (parsed.date === today) {
+      return parsed.amount;
+    }
+    return 0;
+  } catch {
+    return 0;
   }
 }
 
-export function exportData(data: AppData): string {
-  return JSON.stringify(data, null, 2);
+// Add water (250ml per tap)
+export function addWater(amount: number = 250): void {
+  const today = new Date().toDateString();
+  const currentAmount = getTodayWater();
+  
+  localStorage.setItem(WATER_KEY, JSON.stringify({
+    date: today,
+    amount: currentAmount + amount
+  }));
 }
 
-export function importData(jsonString: string): AppData | null {
+// Reset water (called automatically at midnight)
+export function resetWaterIfNewDay(): void {
+  const today = new Date().toDateString();
+  const data = localStorage.getItem(WATER_KEY);
+  
+  if (!data) return;
+  
   try {
-    const parsed = JSON.parse(jsonString) as AppData;
-    // Basic validation
-    if (!parsed.medicines || !parsed.settings) {
-      throw new Error('Invalid data format');
+    const parsed = JSON.parse(data);
+    if (parsed.date !== today) {
+      localStorage.setItem(WATER_KEY, JSON.stringify({
+        date: today,
+        amount: 0
+      }));
     }
-    return parsed;
-  } catch (error) {
-    console.error('Failed to import data:', error);
-    return null;
+  } catch {
+    // Ignore errors
+  }
+}
+// Add this to the bottom of src/storage.ts
+import { MoodEntry } from './types'; // Make sure to add this import at the top of the file if not there
+
+const MOOD_KEY = 'meditrack_mood';
+
+export function getMoodEntries(): MoodEntry[] {
+  const data = localStorage.getItem(MOOD_KEY);
+  if (!data) return [];
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
   }
 }
 
-export function getTodayDateString(): string {
-  return new Date().toISOString().split('T')[0];
+export function saveMoodEntry(entry: MoodEntry): void {
+  const entries = getMoodEntries();
+  // Remove existing entry for today if it exists (so we only have one per day)
+  const filtered = entries.filter(e => e.date !== entry.date);
+  // Add the new one to the top
+  filtered.unshift(entry); 
+  // Save (keep only last 30 entries to prevent storage bloat)
+  localStorage.setItem(MOOD_KEY, JSON.stringify(filtered.slice(0, 30)));
 }
 
-export function isToday(dateString: string): boolean {
-  return dateString === getTodayDateString();
-}
-
-export function isPast(dateString: string): boolean {
-  const today = new Date(getTodayDateString());
-  const date = new Date(dateString);
-  return date < today;
-}
-
-export function isFuture(dateString: string): boolean {
-  const today = new Date(getTodayDateString());
-  const date = new Date(dateString);
-  return date > today;
-}
-
-export function formatDateDisplay(dateString: string): string {
-  const date = new Date(dateString);
-  const today = new Date(getTodayDateString());
-  
-  if (dateString === getTodayDateString()) {
-    return 'Today';
-  }
-  
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (dateString === yesterday.toISOString().split('T')[0]) {
-    return 'Yesterday';
-  }
-  
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  if (dateString === tomorrow.toISOString().split('T')[0]) {
-    return 'Tomorrow';
-  }
-  
-  return date.toLocaleDateString('en-US', { 
-    weekday: 'short', 
-    month: 'short', 
-    day: 'numeric' 
-  });
-}
-
-export function getCountdownDisplay(dateString: string, timeString: string): string {
-  const dateTime = new Date(`${dateString}T${timeString}`);
-  const now = new Date();
-  const diffMs = dateTime.getTime() - now.getTime();
-  
-  if (diffMs <= 0) {
-    return 'Now or past';
-  }
-  
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  
-  if (diffDays === 0) {
-    if (diffHours === 0) {
-      return 'In less than an hour';
-    }
-    return `In ${diffHours}h`;
-  } else if (diffDays === 1) {
-    return 'Tomorrow';
-  } else if (diffDays < 7) {
-    return `In ${diffDays} days`;
-  } else {
-    return formatDateDisplay(dateString);
-  }
+export function getTodayMood(): MoodEntry | null {
+  const today = new Date().toISOString().split('T')[0];
+  return getMoodEntries().find(e => e.date === today) || null;
 }
