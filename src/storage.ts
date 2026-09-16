@@ -1,126 +1,223 @@
-// src/storage.ts
-import { Medicine } from './types';
+// MediTrack - Storage Module
 
-const MEDICINE_KEY = 'meditrack_medicines';
+import { AppData, Medicine, MedicineLog, WaterLog, MoodEntry, VitalsLog, SleepLog, Appointment } from './types';
 
-// Load medicines from LocalStorage
-export function getMedicines(): Medicine[] {
-  const data = localStorage.getItem(MEDICINE_KEY);
-  if (!data) return [];
+const STORAGE_KEY = 'meditrack_data_v2';
+
+const DEFAULT_DATA: AppData = {
+  medicines: [],
+  medicineLogs: [],
+  hydrationLogs: [],
+  moodEntries: [],
+  vitalsLogs: [],
+  sleepLogs: [],
+  appointments: [],
+  settings: {
+    hydrationGoal: 2000,
+    notificationsEnabled: false,
+    reminderTimes: ['09:00', '14:00', '20:00'],
+    theme: 'light'
+  }
+};
+
+export function getTodayDateString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+export function isToday(dateString: string): boolean {
+  const today = getTodayDateString();
+  return dateString === today;
+}
+
+export function isPast(dateString: string): boolean {
+  const today = getTodayDateString();
+  return dateString < today;
+}
+
+export function isFuture(dateString: string): boolean {
+  const today = getTodayDateString();
+  return dateString > today;
+}
+
+export function getCountdownDisplay(dateString: string, timeString: string): string {
+  const target = new Date(`${dateString}T${timeString}`);
+  const now = new Date();
+  const diff = target.getTime() - now.getTime();
+  
+  if (diff <= 0) return 'Due now';
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return `In ${days}d`;
+  } else if (hours > 0) {
+    return `In ${hours}h ${minutes}m`;
+  } else {
+    return `In ${minutes}m`;
+  }
+}
+
+export function formatDateDisplay(dateString: string): string {
+  const date = new Date(dateString + 'T00:00:00');
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+function loadAppData(): AppData {
+  const data = localStorage.getItem(STORAGE_KEY);
+  if (!data) {
+    return { ...DEFAULT_DATA };
+  }
   try {
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    return {
+      ...DEFAULT_DATA,
+      ...parsed,
+      settings: { ...DEFAULT_DATA.settings, ...parsed.settings }
+    };
   } catch (error) {
-    console.error("Failed to parse medicines", error);
-    return [];
+    console.error("Failed to parse app data", error);
+    return { ...DEFAULT_DATA };
   }
 }
 
-// Save medicines to LocalStorage
-export function saveMedicines(medicines: Medicine[]): void {
-  localStorage.setItem(MEDICINE_KEY, JSON.stringify(medicines));
+let cachedData: AppData | null = null;
+
+export function getAppData(): AppData {
+  if (!cachedData) {
+    cachedData = loadAppData();
+  }
+  return cachedData;
 }
 
-// Add a new medicine
+export function saveAppData(data: AppData): void {
+  cachedData = data;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+export function resetAppData(): void {
+  cachedData = null;
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+export function exportAllData(): string {
+  const data = getAppData();
+  return JSON.stringify({
+    ...data,
+    exportDate: new Date().toISOString()
+  }, null, 2);
+}
+
+export function importAllData(jsonString: string): boolean {
+  try {
+    const data = JSON.parse(jsonString);
+    if (data.medicines || data.moodEntries || data.settings) {
+      saveAppData({
+        ...DEFAULT_DATA,
+        ...data,
+        settings: { ...DEFAULT_DATA.settings, ...data.settings }
+      });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Failed to import data", error);
+    return false;
+  }
+}
+
+// Legacy support functions for backward compatibility
+export function getMedicines(): Medicine[] {
+  return getAppData().medicines;
+}
+
 export function addMedicine(med: Medicine): void {
-  const medicines = getMedicines();
-  medicines.push(med);
-  saveMedicines(medicines);
+  const data = getAppData();
+  data.medicines.push(med);
+  saveAppData(data);
 }
 
-// Toggle the "taken" status of a medicine
 export function toggleMedicine(id: string): void {
-  const medicines = getMedicines();
-  const index = medicines.findIndex(m => m.id === id);
-  if (index !== -1) {
-    medicines[index].taken = !medicines[index].taken;
-    saveMedicines(medicines);
+  const data = getAppData();
+  const medicine = data.medicines.find(m => m.id === id);
+  if (medicine) {
+    medicine.taken = !medicine.taken;
+    saveAppData(data);
   }
 }
 
-// src/storage.ts - ADD THIS AT THE BOTTOM
+export function deleteMedicine(id: string): void {
+  const data = getAppData();
+  data.medicines = data.medicines.filter(m => m.id !== id);
+  saveAppData(data);
+}
 
-const WATER_KEY = 'meditrack_water';
-
-// Get today's water amount
 export function getTodayWater(): number {
-  const today = new Date().toDateString();
-  const data = localStorage.getItem(WATER_KEY);
-  if (!data) return 0;
+  const today = getTodayDateString();
+  const data = getAppData();
+  const log = data.hydrationLogs.find(l => l.date === today);
+  return log ? log.amount : 0;
+}
+
+export function addWater(amount: number): void {
+  const data = getAppData();
+  const today = getTodayDateString();
+  let log = data.hydrationLogs.find(l => l.date === today);
   
-  try {
-    const parsed = JSON.parse(data);
-    if (parsed.date === today) {
-      return parsed.amount;
-    }
-    return 0;
-  } catch {
-    return 0;
+  if (log) {
+    log.amount = Math.max(0, log.amount + amount);
+  } else {
+    log = {
+      date: today,
+      amount: Math.max(0, amount),
+      goal: data.settings.hydrationGoal
+    };
+    data.hydrationLogs.push(log);
   }
-}
-
-// Add water (250ml per tap)
-export function addWater(amount: number = 250): void {
-  const today = new Date().toDateString();
-  const currentAmount = getTodayWater();
   
-  localStorage.setItem(WATER_KEY, JSON.stringify({
-    date: today,
-    amount: Math.max(0, currentAmount + amount)
-  }));
+  saveAppData(data);
 }
 
-// Reset water (called automatically at midnight)
 export function resetWaterIfNewDay(): void {
-  const today = new Date().toDateString();
-  const data = localStorage.getItem(WATER_KEY);
+  const today = getTodayDateString();
+  const data = getAppData();
+  const lastLog = data.hydrationLogs[data.hydrationLogs.length - 1];
   
-  if (!data) return;
-  
-  try {
-    const parsed = JSON.parse(data);
-    if (parsed.date !== today) {
-      localStorage.setItem(WATER_KEY, JSON.stringify({
-        date: today,
-        amount: 0
-      }));
-    }
-  } catch {
-    // Ignore errors
+  if (lastLog && lastLog.date !== today) {
+    // Keep old logs but they won't show for today
   }
 }
-// Add this to the bottom of src/storage.ts
-import { MoodEntry } from './types'; // Make sure to add this import at the top of the file if not there
-
-const MOOD_KEY = 'meditrack_mood';
 
 export function getMoodEntries(): MoodEntry[] {
-  const data = localStorage.getItem(MOOD_KEY);
-  if (!data) return [];
-  try {
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
+  return getAppData().moodEntries.sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 }
 
 export function saveMoodEntry(entry: MoodEntry): void {
-  const entries = getMoodEntries();
-  // Remove existing entry for today if it exists (so we only have one per day)
-  const filtered = entries.filter(e => e.date !== entry.date);
-  // Add the new one to the top
-  filtered.unshift(entry); 
-  // Save (keep only last 30 entries to prevent storage bloat)
-  localStorage.setItem(MOOD_KEY, JSON.stringify(filtered.slice(0, 30)));
+  const data = getAppData();
+  const existingIndex = data.moodEntries.findIndex(e => e.date === entry.date);
+  
+  if (existingIndex !== -1) {
+    data.moodEntries[existingIndex] = entry;
+  } else {
+    data.moodEntries.push(entry);
+  }
+  
+  // Keep only last 90 entries
+  data.moodEntries.sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  ).slice(0, 90);
+  
+  saveAppData(data);
 }
 
 export function getTodayMood(): MoodEntry | null {
-  const today = new Date().toISOString().split('T')[0];
-  return getMoodEntries().find(e => e.date === today) || null;
-}
-// Add this function to storage.ts
-
-export function deleteMedicine(id: string): void {
-  const medicines = getMedicines();
-  const filtered = medicines.filter(m => m.id !== id);
-  saveMedicines(filtered);
+  const today = getTodayDateString();
+  return getAppData().moodEntries.find(e => e.date === today) || null;
 }

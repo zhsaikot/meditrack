@@ -1,30 +1,66 @@
 // src/main.ts
 import './style.css'
-import { Medicine, MoodEntry } from './types'
-import { getMedicines, addMedicine, toggleMedicine, deleteMedicine } from './storage'
-import { getTodayWater, addWater, resetWaterIfNewDay } from './storage'
-import { getMoodEntries, saveMoodEntry, getTodayMood } from './storage'
+import { Medicine, MoodEntry, VitalsLog, SleepLog, Appointment } from './types'
+import { 
+  getMedicines, 
+  addMedicine, 
+  toggleMedicine, 
+  deleteMedicine,
+  getTodayWater, 
+  addWater, 
+  resetWaterIfNewDay,
+  getMoodEntries, 
+  saveMoodEntry, 
+  getTodayMood,
+  getAppData,
+  saveAppData,
+  exportAllData,
+  importAllData
+} from './storage'
+import { initVitalsModule, addVitalsLog, getLatestVitals, getVitalsAverages } from './modules/vitals'
+import { initSleepModule, addSleepLog, getLatestSleep, getSleepAverage } from './modules/sleep'
+import { initJournalModule, getMoodHistory, getMoodAverage } from './modules/journal'
+import { initHydrationModule, getHydrationGoal, setHydrationGoal, getTodaysHydration } from './modules/hydration'
+import { initMedicineModule, getTodayMedicineList, markMedicineTaken, markMedicineSkipped, getTodaysProgress } from './modules/medicine'
+import { initAppointmentsModule, getAppointments, addAppointment, getNextAppointment } from './modules/appointments'
+import { getHealthInsight, formatTime } from './utils'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
-const WATER_GOAL = 2000;
 
 // App State
 let appState = {
   currentMood: 0,
   currentSymptoms: [] as string[],
-  isDarkMode: false
+  isDarkMode: false,
+  vitalsForm: {
+    heartRate: '',
+    weight: '',
+    temperature: '',
+    systolic: '',
+    diastolic: ''
+  },
+  sleepForm: {
+    bedtime: '23:00',
+    wakeTime: '07:00',
+    quality: 3
+  }
 };
 
 // Load saved state
 function loadAppState() {
-  const saved = localStorage.getItem('meditrack_state');
-  if (saved) {
-    const parsed = JSON.parse(saved);
-    appState.isDarkMode = parsed.isDarkMode || false;
-    if (appState.isDarkMode) {
-      document.documentElement.classList.add('dark-mode');
-    }
+  const data = getAppData();
+  appState.isDarkMode = data.settings.theme === 'dark';
+  if (appState.isDarkMode) {
+    document.documentElement.classList.add('dark-mode');
   }
+  
+  // Initialize modules
+  initVitalsModule(data);
+  initSleepModule(data);
+  initJournalModule(data);
+  initHydrationModule(data);
+  initMedicineModule(data);
+  initAppointmentsModule(data);
   
   // Load today's mood if exists
   const todayMood = getTodayMood();
@@ -35,42 +71,62 @@ function loadAppState() {
 }
 
 function saveAppState() {
-  localStorage.setItem('meditrack_state', JSON.stringify({
-    isDarkMode: appState.isDarkMode
-  }));
+  const data = getAppData();
+  data.settings.theme = appState.isDarkMode ? 'dark' : 'light';
+  saveAppData(data);
 }
 
 function renderApp() {
-  resetWaterIfNewDay(); 
+  resetWaterIfNewDay();
+  const data = getAppData();
   const medicines = getMedicines();
   const waterAmount = getTodayWater();
-  const waterProgress = Math.min((waterAmount / WATER_GOAL) * 100, 100);
+  const hydrationGoal = getHydrationGoal();
+  const waterProgress = Math.min((waterAmount / hydrationGoal) * 100, 100);
   const moodEntries = getMoodEntries();
+  const latestVitals = getLatestVitals();
+  const latestSleep = getLatestSleep();
+  const nextAppt = getNextAppointment();
   
   // Calculate stats
-  const totalMeds = medicines.length;
-  const takenMeds = medicines.filter(m => m.taken).length;
-  const adherenceRate = totalMeds > 0 ? Math.round((takenMeds / totalMeds) * 100) : 0;
+  const medProgress = getTodaysProgress();
+  const adherenceRate = medProgress.percentage;
+  const sleepAvg = getSleepAverage(7);
+  const moodAvg = getMoodAverage(7);
+  const vitalsAvg = getVitalsAverages(7);
+  
   const streakDays = calculateStreak(moodEntries);
-  const nextMedicine = medicines
-    .filter(medicine => !medicine.taken)
-    .sort((a, b) => a.time.localeCompare(b.time))[0];
+  const todaysMedList = getTodayMedicineList();
+  const nextMedicine = todaysMedList
+    .filter(({ log }) => !log?.taken)
+    .sort((a, b) => a.medicine.time.localeCompare(b.medicine.time))[0];
   const latestMood = moodEntries[0];
   const todayLabel = new Intl.DateTimeFormat('en-US', {
     weekday: 'long', month: 'long', day: 'numeric'
   }).format(new Date());
+  
+  const healthInsight = getHealthInsight({
+    moodAvg: moodAvg,
+    sleepAvg: sleepAvg.avgQuality,
+    waterIntake: waterAmount,
+    medicineAdherence: adherenceRate
+  });
 
-  const medicineListHTML = medicines.map(med => `
-    <div class="medicine-item ${med.taken ? 'taken' : ''}">
+  const medicineListHTML = todaysMedList.map(({ medicine, log }) => `
+    <div class="medicine-item ${log?.taken ? 'taken' : ''}">
       <div class="med-info">
-        <strong>${med.name}</strong> <span class="dosage">(${med.dosage})</span>
-        <div class="time">🕐 ${med.time}</div>
+        <strong>${medicine.name}</strong> <span class="dosage">(${medicine.dosage})</span>
+        <div class="time">🕐 ${formatTime(medicine.time)}${nextMedicine?.medicine.id === medicine.id && !log?.taken ? ' · Next' : ''}</div>
+        ${medicine.inventory <= 5 ? `<div class="low-stock">⚠️ Low stock: ${medicine.inventory} left</div>` : ''}
       </div>
       <div class="med-actions">
-        <button class="check-btn" data-id="${med.id}">
-          ${med.taken ? '✅' : '⬜'}
-        </button>
-        <button class="delete-btn" data-id="${med.id}">️</button>
+        ${!log?.taken ? `
+          <button class="action-btn take-btn" data-id="${medicine.id}" title="Mark as taken">✓</button>
+          <button class="action-btn skip-btn" data-id="${medicine.id}" title="Skip today">⊘</button>
+        ` : `
+          <button class="action-btn undo-btn" data-id="${medicine.id}" title="Undo">↩</button>
+        `}
+        <button class="delete-btn" data-id="${medicine.id}">🗑</button>
       </div>
     </div>
   `).join('');
@@ -95,7 +151,7 @@ function renderApp() {
           <div>
             <p class="eyebrow">PERSONAL HEALTH DASHBOARD</p>
             <h1>MediTrack</h1>
-            <p class="subtitle">A quieter way to stay on top of today.</p>
+            <p class="subtitle">Your complete health companion</p>
           </div>
         </div>
         <div class="header-actions">
@@ -111,14 +167,14 @@ function renderApp() {
       <div class="date-strip">
         <span class="status-dot"></span>
         <span>${todayLabel}</span>
-        <span class="date-strip-note">Your data stays on this device</span>
+        <span class="date-strip-note">${healthInsight}</span>
       </div>
 
       <section class="welcome-panel">
         <div>
           <p class="eyebrow">GOOD TO SEE YOU</p>
           <h2>Take the day one small step at a time.</h2>
-          <p>${nextMedicine ? `Next up: <strong>${nextMedicine.name}</strong> at ${nextMedicine.time}.` : 'Your schedule is clear. Add a medicine when you are ready.'}</p>
+          <p>${nextMedicine ? `Next up: <strong>${nextMedicine.medicine.name}</strong> at ${formatTime(nextMedicine.medicine.time)}.` : 'Your schedule is clear. Add a medicine when you are ready.'}${nextAppt ? `<br><strong>📅 ${nextAppt.title}</strong> with ${nextAppt.doctor} on ${new Date(nextAppt.date + 'T' + nextAppt.time).toLocaleDateString()}` : ''}</p>
         </div>
         <div class="welcome-orbit" aria-hidden="true"><span>✦</span></div>
       </section>
@@ -136,21 +192,35 @@ function renderApp() {
             <div class="stat-label">Water Intake</div>
           </div>
           <div class="stat-item">
+            <div class="stat-value">${sleepAvg.avgDuration ? sleepAvg.avgDuration + 'h' : '--'}</div>
+            <div class="stat-label">Avg Sleep</div>
+          </div>
+          <div class="stat-item">
             <div class="stat-value">${streakDays} days</div>
             <div class="stat-label">Check-in Streak</div>
           </div>
         </div>
       </section>
 
+      <!-- Quick Actions -->
+      <section class="card quick-actions">
+        <div class="section-heading"><div><p class="eyebrow">QUICK LOG</p><h2>Record vitals & sleep</h2></div></div>
+        <div class="quick-grid">
+          <button class="quick-btn" id="show-vitals-btn">❤️ Vitals</button>
+          <button class="quick-btn" id="show-sleep-btn">😴 Sleep Log</button>
+          <button class="quick-btn" id="show-appointment-btn">📅 Appointment</button>
+        </div>
+      </section>
+
       <!-- Water Tracker -->
       <section class="card water-card">
         <div class="section-heading light-heading"><div><p class="eyebrow">BODY RHYTHM</p><h2>Hydration</h2></div><span class="water-icon">◌</span></div>
-        <p class="card-intro">Small sips add up. You are ${waterAmount >= WATER_GOAL ? 'at your daily goal' : `${WATER_GOAL - waterAmount}ml from your goal`}.</p>
+        <p class="card-intro">Small sips add up. You are ${waterAmount >= hydrationGoal ? 'at your daily goal' : `${hydrationGoal - waterAmount}ml from your goal`}.</p>
         <div class="water-progress">
           <div class="progress-bar" style="width: ${waterProgress}%"></div>
         </div>
         <div class="water-stats">
-          <span>${waterAmount}ml / ${WATER_GOAL}ml</span>
+          <span>${waterAmount}ml / ${hydrationGoal}ml</span>
           <span>${Math.round(waterProgress)}%</span>
         </div>
         <div class="water-actions"><button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">−</button><button class="btn-water" id="add-water-btn">Add 250ml <span>+</span></button></div>
@@ -182,6 +252,31 @@ function renderApp() {
         <button class="btn-primary" id="save-mood-btn">Save today's check-in <span>→</span></button>
       </section>
 
+      <!-- Latest Vitals Display -->
+      ${latestVitals ? `
+      <section class="card vitals-display">
+        <div class="section-heading"><div><p class="eyebrow">LATEST VITALS</p><h2>Your recent readings</h2></div></div>
+        <div class="vitals-grid">
+          ${latestVitals.heartRate ? `<div class="vital-item"><span class="vital-label">Heart Rate</span><span class="vital-value">${latestVitals.heartRate} bpm</span></div>` : ''}
+          ${latestVitals.bloodPressure ? `<div class="vital-item"><span class="vital-label">Blood Pressure</span><span class="vital-value">${latestVitals.bloodPressure.systolic}/${latestVitals.bloodPressure.diastolic}</span></div>` : ''}
+          ${latestVitals.weight ? `<div class="vital-item"><span class="vital-label">Weight</span><span class="vital-value">${latestVitals.weight} kg</span></div>` : ''}
+          ${latestVitals.temperature ? `<div class="vital-item"><span class="vital-label">Temperature</span><span class="vital-value">${latestVitals.temperature}°C</span></div>` : ''}
+        </div>
+      </section>
+      ` : ''}
+
+      <!-- Latest Sleep Display -->
+      ${latestSleep ? `
+      <section class="card sleep-display">
+        <div class="section-heading"><div><p class="eyebrow">LAST NIGHT'S SLEEP</p><h2>Sleep summary</h2></div></div>
+        <div class="sleep-summary">
+          <div class="sleep-stat"><span class="sleep-value">${latestSleep.duration}h</span><span class="sleep-label">Duration</span></div>
+          <div class="sleep-stat"><span class="sleep-value">${'😴'.repeat(latestSleep.quality)}${'🌑'.repeat(5 - latestSleep.quality)}</span><span class="sleep-label">Quality</span></div>
+          <div class="sleep-stat"><span class="sleep-value">${formatTime(latestSleep.bedtime)} - ${formatTime(latestSleep.wakeTime)}</span><span class="sleep-label">Schedule</span></div>
+        </div>
+      </section>
+      ` : ''}
+
       <section class="insight-row">
         <div class="card insight-card">
           <p class="eyebrow">RECENT NOTE</p>
@@ -190,7 +285,7 @@ function renderApp() {
         </div>
         <div class="card insight-card accent-insight">
           <p class="eyebrow">TODAY'S FOCUS</p>
-          <h3>${totalMeds === 0 ? 'Build your routine' : adherenceRate === 100 ? 'Routine complete' : `${totalMeds - takenMeds} medicine${totalMeds - takenMeds === 1 ? '' : 's'} left`}</h3>
+          <h3>${medProgress.total === 0 ? 'Build your routine' : adherenceRate === 100 ? 'Routine complete' : `${medProgress.total - medProgress.taken} medicine${medProgress.total - medProgress.taken === 1 ? '' : 's'} left`}</h3>
           <p class="muted-copy">${streakDays > 1 ? `${streakDays} days of consistent check-ins.` : 'Consistency starts with one action.'}</p>
         </div>
       </section>
@@ -202,17 +297,75 @@ function renderApp() {
           <input type="text" id="med-name" placeholder="Medicine Name (e.g., Ibuprofen)" required />
           <input type="text" id="med-dosage" placeholder="Dosage (e.g., 200mg)" required />
           <input type="time" id="med-time" required />
+          <select id="med-frequency">
+            <option value="daily">Daily</option>
+            <option value="weekdays">Weekdays only</option>
+            <option value="weekends">Weekends only</option>
+            <option value="custom">Custom days</option>
+          </select>
+          <input type="number" id="med-inventory" placeholder="Pill count" min="0" value="30" />
           <button type="submit" class="btn-primary">Add Medicine</button>
         </form>
       </section>
 
       <section class="card list-card">
-        <div class="section-heading"><div><p class="eyebrow">SCHEDULE</p><h2>Today's medicines</h2></div><span class="progress-pill">${takenMeds} / ${totalMeds} done</span></div>
+        <div class="section-heading"><div><p class="eyebrow">SCHEDULE</p><h2>Today's medicines</h2></div><span class="progress-pill">${medProgress.taken} / ${medProgress.total} done</span></div>
         <div id="medicine-list">
-          ${medicines.length === 0 ? '<p class="empty-state">No medicines added yet.</p>' : medicineListHTML}
+          ${todaysMedList.length === 0 ? '<p class="empty-state">No medicines scheduled for today.</p>' : medicineListHTML}
         </div>
       </section>
     </div>
+    
+    <!-- Vitals Modal -->
+    <dialog id="vitals-modal" class="modal">
+      <div class="modal-content">
+        <h3>Record Vitals</h3>
+        <form id="vitals-form">
+          <label>Heart Rate (bpm)<input type="number" id="vitals-hr" placeholder="e.g., 72" /></label>
+          <label>Blood Pressure<input type="text" id="vitals-bp" placeholder="120/80" /></label>
+          <label>Weight (kg)<input type="number" id="vitals-weight" step="0.1" placeholder="e.g., 70.5" /></label>
+          <label>Temperature (°C)<input type="number" id="vitals-temp" step="0.1" placeholder="e.g., 36.6" /></label>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="close-vitals-btn">Cancel</button>
+            <button type="submit" class="btn-primary">Save Vitals</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+    
+    <!-- Sleep Modal -->
+    <dialog id="sleep-modal" class="modal">
+      <div class="modal-content">
+        <h3>Log Sleep</h3>
+        <form id="sleep-form">
+          <label>Bedtime<input type="time" id="sleep-bedtime" value="23:00" /></label>
+          <label>Wake Time<input type="time" id="sleep-waketime" value="07:00" /></label>
+          <label>Sleep Quality (1-5)<input type="range" id="sleep-quality" min="1" max="5" value="3" /><span id="quality-display">3</span></label>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="close-sleep-btn">Cancel</button>
+            <button type="submit" class="btn-primary">Save Sleep</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+    
+    <!-- Appointment Modal -->
+    <dialog id="appointment-modal" class="modal">
+      <div class="modal-content">
+        <h3>Add Appointment</h3>
+        <form id="appointment-form">
+          <label>Title<input type="text" id="appt-title" placeholder="e.g., Check-up" required /></label>
+          <label>Doctor<input type="text" id="appt-doctor" placeholder="Dr. Name" required /></label>
+          <label>Date<input type="date" id="appt-date" required /></label>
+          <label>Time<input type="time" id="appt-time" required /></label>
+          <label>Location<input type="text" id="appt-location" placeholder="Clinic/Hospital" /></label>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="close-appt-btn">Cancel</button>
+            <button type="submit" class="btn-primary">Add Appointment</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
   `;
 
   attachEventListeners();
@@ -237,12 +390,17 @@ function attachEventListeners() {
   const form = document.getElementById('add-med-form') as HTMLFormElement;
   form?.addEventListener('submit', (e) => {
     e.preventDefault();
+    const frequency = (document.getElementById('med-frequency') as HTMLSelectElement).value as 'daily' | 'weekdays' | 'weekends' | 'custom';
     addMedicine({
       id: Date.now().toString(),
       name: (document.getElementById('med-name') as HTMLInputElement).value,
       dosage: (document.getElementById('med-dosage') as HTMLInputElement).value,
       time: (document.getElementById('med-time') as HTMLInputElement).value,
-      taken: false
+      taken: false,
+      frequency: frequency,
+      specificDays: [],
+      inventory: parseInt((document.getElementById('med-inventory') as HTMLInputElement).value) || 30,
+      createdAt: new Date().toISOString()
     });
     renderApp();
   });
@@ -317,7 +475,8 @@ function attachEventListeners() {
       date: today,
       mood: appState.currentMood,
       symptoms: appState.currentSymptoms,
-      notes
+      notes,
+      createdAt: new Date().toISOString()
     });
     
     alert("Check-in saved! 🎉");
