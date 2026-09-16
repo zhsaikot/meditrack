@@ -52,6 +52,13 @@ function renderApp() {
   const takenMeds = medicines.filter(m => m.taken).length;
   const adherenceRate = totalMeds > 0 ? Math.round((takenMeds / totalMeds) * 100) : 0;
   const streakDays = calculateStreak(moodEntries);
+  const nextMedicine = medicines
+    .filter(medicine => !medicine.taken)
+    .sort((a, b) => a.time.localeCompare(b.time))[0];
+  const latestMood = moodEntries[0];
+  const todayLabel = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric'
+  }).format(new Date());
 
   const medicineListHTML = medicines.map(med => `
     <div class="medicine-item ${med.taken ? 'taken' : ''}">
@@ -83,9 +90,13 @@ function renderApp() {
   app.innerHTML = `
     <div class="container">
       <header class="main-header">
-        <div>
-          <h1>💊 MediTrack</h1>
-          <p class="subtitle">Your local-first health companion</p>
+        <div class="brand-lockup">
+          <div class="brand-mark">✚</div>
+          <div>
+            <p class="eyebrow">PERSONAL HEALTH DASHBOARD</p>
+            <h1>MediTrack</h1>
+            <p class="subtitle">A quieter way to stay on top of today.</p>
+          </div>
         </div>
         <div class="header-actions">
           <button class="icon-btn" id="toggle-theme-btn" title="Toggle Dark Mode">
@@ -97,9 +108,24 @@ function renderApp() {
         </div>
       </header>
 
+      <div class="date-strip">
+        <span class="status-dot"></span>
+        <span>${todayLabel}</span>
+        <span class="date-strip-note">Your data stays on this device</span>
+      </div>
+
+      <section class="welcome-panel">
+        <div>
+          <p class="eyebrow">GOOD TO SEE YOU</p>
+          <h2>Take the day one small step at a time.</h2>
+          <p>${nextMedicine ? `Next up: <strong>${nextMedicine.name}</strong> at ${nextMedicine.time}.` : 'Your schedule is clear. Add a medicine when you are ready.'}</p>
+        </div>
+        <div class="welcome-orbit" aria-hidden="true"><span>✦</span></div>
+      </section>
+
       <!-- Statistics Card -->
       <section class="card stats-card">
-        <h2>📊 Today's Overview</h2>
+        <div class="section-heading light-heading"><div><p class="eyebrow">AT A GLANCE</p><h2>Today's overview</h2></div><span class="section-kicker">LIVE</span></div>
         <div class="stats-grid">
           <div class="stat-item">
             <div class="stat-value">${adherenceRate}%</div>
@@ -118,7 +144,8 @@ function renderApp() {
 
       <!-- Water Tracker -->
       <section class="card water-card">
-        <h2>💧 Hydration Tracker</h2>
+        <div class="section-heading light-heading"><div><p class="eyebrow">BODY RHYTHM</p><h2>Hydration</h2></div><span class="water-icon">◌</span></div>
+        <p class="card-intro">Small sips add up. You are ${waterAmount >= WATER_GOAL ? 'at your daily goal' : `${WATER_GOAL - waterAmount}ml from your goal`}.</p>
         <div class="water-progress">
           <div class="progress-bar" style="width: ${waterProgress}%"></div>
         </div>
@@ -126,12 +153,12 @@ function renderApp() {
           <span>${waterAmount}ml / ${WATER_GOAL}ml</span>
           <span>${Math.round(waterProgress)}%</span>
         </div>
-        <button class="btn-water" id="add-water-btn">💧 Add 250ml</button>
+        <div class="water-actions"><button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">−</button><button class="btn-water" id="add-water-btn">Add 250ml <span>+</span></button></div>
       </section>
 
       <!-- Mood & Symptom Journal -->
       <section class="card mood-card">
-        <h2>📝 Daily Check-in</h2>
+        <div class="section-heading"><div><p class="eyebrow">MENTAL CHECK-IN</p><h2>How are you feeling?</h2></div><span class="section-icon">☼</span></div>
         <p class="mood-prompt">How are you feeling today?</p>
         <div class="emoji-grid">
           ${moodEmojis.map(e => `
@@ -152,12 +179,25 @@ function renderApp() {
         </div>
 
         <textarea id="mood-notes" placeholder="Add notes (optional)..." rows="3">${notesValue}</textarea>
-        <button class="btn-primary" id="save-mood-btn">Save Check-in</button>
+        <button class="btn-primary" id="save-mood-btn">Save today's check-in <span>→</span></button>
+      </section>
+
+      <section class="insight-row">
+        <div class="card insight-card">
+          <p class="eyebrow">RECENT NOTE</p>
+          <h3>${latestMood ? `${latestMood.notes || 'You checked in today.'}` : 'Your journal is ready when you are.'}</h3>
+          <p class="muted-copy">${latestMood ? `${latestMood.symptoms.length ? latestMood.symptoms.join(' · ') : 'No symptoms logged'} · Mood ${latestMood.mood}/5` : 'A short check-in can help you spot patterns over time.'}</p>
+        </div>
+        <div class="card insight-card accent-insight">
+          <p class="eyebrow">TODAY'S FOCUS</p>
+          <h3>${totalMeds === 0 ? 'Build your routine' : adherenceRate === 100 ? 'Routine complete' : `${totalMeds - takenMeds} medicine${totalMeds - takenMeds === 1 ? '' : 's'} left`}</h3>
+          <p class="muted-copy">${streakDays > 1 ? `${streakDays} days of consistent check-ins.` : 'Consistency starts with one action.'}</p>
+        </div>
       </section>
 
       <!-- Medicine Section -->
       <section class="card add-med-card">
-        <h2>💊 Add Medicine</h2>
+        <div class="section-heading"><div><p class="eyebrow">YOUR ROUTINE</p><h2>Add a medicine</h2></div><span class="section-icon">＋</span></div>
         <form id="add-med-form">
           <input type="text" id="med-name" placeholder="Medicine Name (e.g., Ibuprofen)" required />
           <input type="text" id="med-dosage" placeholder="Dosage (e.g., 200mg)" required />
@@ -167,7 +207,7 @@ function renderApp() {
       </section>
 
       <section class="card list-card">
-        <h2>Today's Medicines (${takenMeds}/${totalMeds})</h2>
+        <div class="section-heading"><div><p class="eyebrow">SCHEDULE</p><h2>Today's medicines</h2></div><span class="progress-pill">${takenMeds} / ${totalMeds} done</span></div>
         <div id="medicine-list">
           ${medicines.length === 0 ? '<p class="empty-state">No medicines added yet.</p>' : medicineListHTML}
         </div>
@@ -230,6 +270,14 @@ function attachEventListeners() {
   document.getElementById('add-water-btn')?.addEventListener('click', () => {
     addWater(250);
     renderApp();
+  });
+
+  document.getElementById('remove-water-btn')?.addEventListener('click', () => {
+    const currentWater = getTodayWater();
+    if (currentWater > 0) {
+      addWater(-250);
+      renderApp();
+    }
   });
 
   // Mood Selection - FIXED: Update state before re-render

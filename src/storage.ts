@@ -65,7 +65,7 @@ export function addWater(amount: number = 250): void {
   
   localStorage.setItem(WATER_KEY, JSON.stringify({
     date: today,
-    amount: currentAmount + amount
+    amount: Math.max(0, currentAmount + amount)
   }));
 }
 
