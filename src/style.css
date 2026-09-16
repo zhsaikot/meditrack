@@ -123,11 +123,74 @@ input {
   margin-top: 4px;
 }
 
-.check-btn {
+.med-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.take-btn {
+  background-color: #10B981;
+  color: white;
+}
+
+.take-btn:hover {
+  background-color: #059669;
+  transform: scale(1.05);
+}
+
+.skip-btn {
+  background-color: #F59E0B;
+  color: white;
+}
+
+.skip-btn:hover {
+  background-color: #D97706;
+  transform: scale(1.05);
+}
+
+.undo-btn {
+  background-color: #6B7280;
+  color: white;
+}
+
+.undo-btn:hover {
+  background-color: #4B5563;
+  transform: scale(1.05);
+}
+
+.delete-btn {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+}
+
+.low-stock {
+  color: #EF4444;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  font-weight: 500;
 }
 
 .empty-state {
@@ -496,3 +559,19 @@ body {
 .dark-mode .main-header h1, .dark-mode .brand-mark { color: #e6f1e8; }
 .dark-mode .progress-pill { background: #244741; color: #b9ded0; }
 .dark-mode .accent-insight { background: #4d432c; border-color: #71613c; }
+
+/* Quick Actions */
+.quick-actions { border-left: 0; border-top: 4px solid #0D9488; }
+.quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.quick-btn { padding: 14px 10px; border: 1px solid var(--border-color); background: var(--bg-primary); border-radius: 10px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+.quick-btn:hover { border-color: var(--color-primary); transform: translateY(-2px); }
+
+/* Modal Styles */
+.modal { border: none; border-radius: 16px; padding: 0; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+.modal::backdrop { background: rgba(0,0,0,0.5); }
+.modal-content { padding: 24px; }
+.modal-content h3 { margin: 0 0 20px; color: var(--text-main); }
+.modal-content label { display: block; margin-bottom: 14px; }
+.modal-content input { width: 100%; box-sizing: border-box; margin-top: 5px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.btn-secondary { background: var(--bg-primary); border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 8px; cursor: pointer; }
