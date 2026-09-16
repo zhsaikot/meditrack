@@ -2,19 +2,22 @@
 # Dependencies
 node_modules/
 
-# Build outputs
+# Environment
+.env
+.env.local
+*.env.*
+
+# Build artifacts
 dist/
 build/
-coverage/
-htmlcov/
+target/
 
 # Logs
 *.log
 
-# Environment variables
-.env
-.env.local
-*.env.*
+# Temporary files
+*.tmp
+*.swp
 
 # Python
 __pycache__/
@@ -26,27 +29,32 @@ env/
 venv/
 .venv/
 pip-log.txt
-pip-delete-this-directory.txt
-.tox/
+pip-selfcheck.json
+
+# Compiled and binary files
+*.class
+*.o
+*.so
+*.a
+*.dll
+*.exe
+*.out
+*.obj
+
+# Coverage
+coverage/
+htmlcov/
 .coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.DS_Store
-Thumbs.db
 
-# VS Code
+# Editors
 .vscode/
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
+.idea/
 *.swp
 *.swo
+
+# System
+.DS_Store
+Thumbs.db
 
 # Compressed files
 *.zip
@@ -67,8 +75,4 @@ Thumbs.db
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
 ```
