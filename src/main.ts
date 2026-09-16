@@ -595,8 +595,7 @@ function attachEventListeners() {
       date,
       time,
       location,
-      completed: false,
-      createdAt: new Date().toISOString()
+      completed: false
     });
     
     apptModal?.close();
