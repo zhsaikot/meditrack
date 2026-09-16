@@ -21,7 +21,7 @@ import { initVitalsModule, addVitalsLog, getLatestVitals, getVitalsAverages } fr
 import { initSleepModule, addSleepLog, getLatestSleep, getSleepAverage } from './modules/sleep'
 import { initJournalModule, getMoodHistory, getMoodAverage } from './modules/journal'
 import { initHydrationModule, getHydrationGoal, setHydrationGoal, getTodaysHydration } from './modules/hydration'
-import { initMedicineModule, getTodayMedicineList, markMedicineTaken, markMedicineSkipped, getTodaysProgress } from './modules/medicine'
+import { initMedicineModule, getTodayMedicineList, markMedicineTaken, markMedicineSkipped, unmarkMedicine, getTodaysProgress } from './modules/medicine'
 import { initAppointmentsModule, getAppointments, addAppointment, getNextAppointment } from './modules/appointments'
 import { getHealthInsight, formatTime } from './utils'
 
@@ -405,11 +405,27 @@ function attachEventListeners() {
     renderApp();
   });
 
-  // Medicine Actions (Check & Delete)
-  document.querySelectorAll('.check-btn').forEach(btn => {
+  // Medicine Actions (Take, Skip, Undo & Delete)
+  document.querySelectorAll('.take-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
-      toggleMedicine(id);
+      markMedicineTaken(id);
+      renderApp();
+    });
+  });
+
+  document.querySelectorAll('.skip-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
+      markMedicineSkipped(id);
+      renderApp();
+    });
+  });
+
+  document.querySelectorAll('.undo-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
+      unmarkMedicine(id);
       renderApp();
     });
   });
@@ -480,6 +496,110 @@ function attachEventListeners() {
     });
     
     alert("Check-in saved! 🎉");
+    renderApp();
+  });
+
+  // Modal Controls - Vitals
+  const vitalsModal = document.getElementById('vitals-modal') as HTMLDialogElement;
+  const sleepModal = document.getElementById('sleep-modal') as HTMLDialogElement;
+  const apptModal = document.getElementById('appointment-modal') as HTMLDialogElement;
+
+  document.getElementById('show-vitals-btn')?.addEventListener('click', () => {
+    vitalsModal?.showModal();
+  });
+
+  document.getElementById('close-vitals-btn')?.addEventListener('click', () => {
+    vitalsModal?.close();
+  });
+
+  document.getElementById('vitals-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const hr = (document.getElementById('vitals-hr') as HTMLInputElement).value;
+    const bp = (document.getElementById('vitals-bp') as HTMLInputElement).value;
+    const weight = (document.getElementById('vitals-weight') as HTMLInputElement).value;
+    const temp = (document.getElementById('vitals-temp') as HTMLInputElement).value;
+    
+    let bloodPressure = undefined;
+    if (bp && bp.includes('/')) {
+      const [systolic, diastolic] = bp.split('/').map(Number);
+      bloodPressure = { systolic, diastolic };
+    }
+    
+    addVitalsLog({
+      heartRate: hr ? Number(hr) : undefined,
+      bloodPressure,
+      weight: weight ? Number(weight) : undefined,
+      temperature: temp ? Number(temp) : undefined
+    });
+    
+    vitalsModal?.close();
+    renderApp();
+  });
+
+  // Modal Controls - Sleep
+  document.getElementById('show-sleep-btn')?.addEventListener('click', () => {
+    sleepModal?.showModal();
+  });
+
+  document.getElementById('close-sleep-btn')?.addEventListener('click', () => {
+    sleepModal?.close();
+  });
+
+  document.getElementById('sleep-quality')?.addEventListener('input', (e) => {
+    const val = (e.target as HTMLInputElement).value;
+    document.getElementById('quality-display')!.textContent = val;
+  });
+
+  document.getElementById('sleep-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const bedtime = (document.getElementById('sleep-bedtime') as HTMLInputElement).value;
+    const wakeTime = (document.getElementById('sleep-waketime') as HTMLInputElement).value;
+    const quality = parseInt((document.getElementById('sleep-quality') as HTMLInputElement).value);
+    
+    // Calculate duration
+    const bed = new Date(`2000-01-01T${bedtime}`);
+    const wake = new Date(`2000-01-01T${wakeTime}`);
+    let duration = (wake.getTime() - bed.getTime()) / (1000 * 60 * 60);
+    if (duration < 0) duration += 24; // Handle overnight sleep
+    
+    addSleepLog({
+      bedtime,
+      wakeTime,
+      quality
+    });
+    
+    sleepModal?.close();
+    renderApp();
+  });
+
+  // Modal Controls - Appointments
+  document.getElementById('show-appointment-btn')?.addEventListener('click', () => {
+    apptModal?.showModal();
+  });
+
+  document.getElementById('close-appt-btn')?.addEventListener('click', () => {
+    apptModal?.close();
+  });
+
+  document.getElementById('appointment-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = (document.getElementById('appt-title') as HTMLInputElement).value;
+    const doctor = (document.getElementById('appt-doctor') as HTMLInputElement).value;
+    const date = (document.getElementById('appt-date') as HTMLInputElement).value;
+    const time = (document.getElementById('appt-time') as HTMLInputElement).value;
+    const location = (document.getElementById('appt-location') as HTMLInputElement).value;
+    
+    addAppointment({
+      title,
+      doctor,
+      date,
+      time,
+      location,
+      completed: false,
+      createdAt: new Date().toISOString()
+    });
+    
+    apptModal?.close();
     renderApp();
   });
 }
