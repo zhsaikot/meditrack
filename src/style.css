@@ -590,11 +590,23 @@ body {
 @keyframes float-mark { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
 @media (min-width: 680px) {
-  .stats-card { grid-column: span 2; }
-  .water-card { grid-column: span 2; }
-  .mood-card { grid-column: span 2; }
   .container { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; }
-  .main-header, .date-strip, .welcome-panel, .insight-row, .add-med-card, .list-card { grid-column: 1 / -1; }
+  .main-header, 
+  .date-strip, 
+  .welcome-panel, 
+  .stats-card, 
+  .quick-actions, 
+  .water-card, 
+  .mood-card, 
+  .trends-card, 
+  .vitals-display, 
+  .sleep-display, 
+  .insight-row, 
+  .add-med-card, 
+  .list-card, 
+  .appointments-card { 
+    grid-column: 1 / -1; 
+  }
   .main-header { width: auto; }
 }
 
@@ -606,6 +618,7 @@ body {
   .welcome-orbit { width: 68px; height: 68px; flex: 0 0 auto; margin-right: 0; font-size: 1.5rem; }
   .insight-row { display: block; }
   .insight-card { min-height: 0; }
+  .quick-grid { grid-template-columns: 1fr; }
 }
 
 .dark-mode body { background-color: #102725; background-image: radial-gradient(rgba(220, 242, 232, .06) 1px, transparent 1px); }
@@ -614,10 +627,37 @@ body {
 .dark-mode .accent-insight { background: #4d432c; border-color: #71613c; }
 
 /* Quick Actions */
-.quick-actions { border-left: 0; border-top: 4px solid #0D9488; }
-.quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.quick-btn { padding: 14px 10px; border: 1px solid var(--border-color); background: var(--bg-primary); border-radius: 10px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
-.quick-btn:hover { border-color: var(--color-primary); transform: translateY(-2px); }
+.quick-actions { 
+  grid-column: 1 / -1; 
+  border-left: 0; 
+  border-top: 4px solid #0D9488; 
+}
+.quick-grid { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
+  gap: 12px; 
+}
+.quick-btn { 
+  padding: 14px 16px; 
+  border: 1.5px solid var(--border-color); 
+  background: var(--bg-primary); 
+  border-radius: 12px; 
+  cursor: pointer; 
+  font-size: 0.95rem; 
+  font-weight: 600; 
+  color: var(--text-main); 
+  transition: all 0.2s ease; 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 8px; 
+}
+.quick-btn:hover { 
+  border-color: #0D9488; 
+  color: #0D9488; 
+  background: rgba(13, 148, 136, 0.05); 
+  transform: translateY(-2px); 
+}
 
 /* Modal Styles */
 .modal { border: none; border-radius: 16px; padding: 0; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
