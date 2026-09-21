@@ -96,3 +96,4 @@ export function startReminderScheduler(
   checkReminders();
   reminderInterval = window.setInterval(checkReminders, 30000);
 }
+

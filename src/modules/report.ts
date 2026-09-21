@@ -186,3 +186,4 @@ export function printDoctorReport(data: AppData): void {
   `);
   printWindow.document.close();
 }
+

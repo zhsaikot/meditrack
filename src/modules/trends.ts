@@ -236,3 +236,4 @@ export function calculateCorrelationInsight(
 
   return "Consistency is key! Keep recording your daily rhythm to unlock more behavioral health correlations.";
 }
+
