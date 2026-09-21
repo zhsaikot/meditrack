@@ -436,29 +436,30 @@ textarea {
   transform: scale(1.1);
 }
 
-/* Dark Mode */
+/* Dark Mode Base Variables */
+html.dark-mode,
 .dark-mode {
   --bg-primary: #0F172A;
   --bg-card: #1E293B;
   --text-main: #F1F5F9;
   --text-muted: #94A3B8;
   --border-color: #334155;
+  --color-ink: #F1F5F9;
+  --color-primary: #14B8A6;
+  --color-primary-hover: #2DD4BF;
+  color-scheme: dark;
 }
 
 .dark-mode body {
-  background-color: var(--bg-primary);
+  background-color: #0F172A;
+  background-image: radial-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  color: var(--text-main);
 }
 
 .dark-mode .card {
   background: var(--bg-card);
-}
-
-.dark-mode .water-card {
-  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
-}
-
-.dark-mode .stats-card {
-  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+  border-color: #334155;
+  color: var(--text-main);
 }
 
 /* Responsive */
@@ -657,10 +658,31 @@ body {
   }
 }
 
-.dark-mode body { background-color: #102725; background-image: radial-gradient(rgba(220, 242, 232, .06) 1px, transparent 1px); }
-.dark-mode .main-header h1, .dark-mode .brand-mark { color: #e6f1e8; }
-.dark-mode .progress-pill { background: #244741; color: #b9ded0; }
-.dark-mode .accent-insight { background: #4d432c; border-color: #71613c; }
+/* Dark Mode Header & Welcome Panel */
+.dark-mode .main-header h1 { color: #F1F5F9; }
+.dark-mode .brand-mark { background: #134E4A; color: #2DD4BF; box-shadow: 4px 4px 0 #0D9488; }
+.dark-mode .subtitle { color: #94A3B8; }
+.dark-mode .date-strip { color: #CBD5E1; }
+.dark-mode .date-strip-note { color: #94A3B8; }
+.dark-mode .header-actions .icon-btn { background: #1E293B; border-color: #334155; color: #F1F5F9; }
+.dark-mode .header-actions .icon-btn:hover { background: #334155; border-color: #2DD4BF; color: #2DD4BF; }
+.dark-mode .profile-avatar-btn { border-color: #2DD4BF; background: #1E293B; }
+.dark-mode .profile-avatar-fallback { color: #2DD4BF; }
+
+.dark-mode .welcome-panel {
+  background: #134E4A;
+  border: 1px solid #115E59;
+  color: #F1F5F9;
+}
+.dark-mode .welcome-panel h2 { color: #F1F5F9; }
+.dark-mode .welcome-panel p { color: #CCFBF1; }
+.dark-mode .welcome-panel p:last-child { color: #CCFBF1; }
+.dark-mode .welcome-panel strong { color: #FDE68A; }
+.dark-mode .welcome-orbit {
+  border-color: rgba(45, 212, 191, 0.4);
+  color: #2DD4BF;
+  box-shadow: inset 0 0 0 8px rgba(45, 212, 191, 0.06), inset 0 0 0 10px rgba(45, 212, 191, 0.14);
+}
 
 /* Quick Actions */
 .quick-actions { 
@@ -780,20 +802,291 @@ select {
 .sleep-value { font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
 .sleep-label { font-size: 0.75rem; color: var(--text-muted); }
 
-/* Dark Mode Overrides */
-.dark-mode .modal { background: #1e293b; color: #f1f5f9; }
-.dark-mode .modal-content h3 { color: #f1f5f9; }
-.dark-mode .modal-content label { color: #94a3b8; }
-.dark-mode .modal-content input, .dark-mode select, .dark-mode textarea { background: #0f172a; color: #f1f5f9; border-color: #334155; }
-.dark-mode .btn-secondary { background: #334155; color: #f1f5f9; border-color: #475569; }
-.dark-mode .quick-btn { background: #1e293b; border-color: #334155; color: #f1f5f9; }
-.dark-mode .appointment-item, .dark-mode .vital-item, .dark-mode .sleep-stat { background: #0f172a; border-color: #334155; }
-.dark-mode .vital-value { color: #f1f5f9; }
-.dark-mode .countdown-badge { background: #1e3a8a; color: #93c5fd; }
-.dark-mode .next-tag { background: #713f12; color: #fef08a; }
-.dark-mode .medicine-item { background: #1e293b; border-color: #334155; }
-.dark-mode .medicine-item.taken { background: #064e3b; border-color: #047857; }
-.dark-mode .medicine-item.skipped { background: #1e293b; opacity: 0.5; }
+/* ==========================================================================
+   Comprehensive Dark Mode Component Overrides
+   ========================================================================== */
+
+/* Card Headings & Eyebrows */
+.dark-mode .card h2,
+.dark-mode .card h3 {
+  color: #F1F5F9;
+}
+
+.dark-mode .eyebrow {
+  opacity: 1;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.dark-mode .brand-lockup .eyebrow { color: #2DD4BF; }
+.dark-mode .section-heading .eyebrow { color: #2DD4BF; }
+.dark-mode .water-card .eyebrow { color: #2DD4BF; }
+.dark-mode .mood-card .eyebrow { color: #C084FC; }
+.dark-mode .trends-card .eyebrow { color: #2DD4BF; }
+.dark-mode .quick-actions .eyebrow { color: #2DD4BF; }
+.dark-mode .add-med-card .eyebrow { color: #2DD4BF; }
+.dark-mode .list-card .eyebrow { color: #2DD4BF; }
+.dark-mode .appointments-card .eyebrow { color: #60A5FA; }
+.dark-mode .vitals-display .eyebrow { color: #F87171; }
+.dark-mode .sleep-display .eyebrow { color: #C084FC; }
+.dark-mode .insight-card .eyebrow { color: #2DD4BF; }
+.dark-mode .accent-insight .eyebrow { color: #FBBF24; }
+.dark-mode .welcome-panel .eyebrow { color: #FDE68A; }
+
+/* Progress Pills */
+.dark-mode .progress-pill {
+  background: #134E4A;
+  color: #5EEAD4;
+  border: 1px solid #115E59;
+}
+
+/* Today's Overview (Stats Card) */
+.dark-mode .stats-card {
+  background: #134E4A;
+  border: 1px solid #115E59;
+  color: #FFFFFF;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.4);
+}
+.dark-mode .stats-card h2 { color: #FFFFFF; }
+.dark-mode .stats-card .stat-value { color: #FFFFFF; }
+.dark-mode .stats-card .stat-label { color: #CCFBF1; }
+.dark-mode .stats-card .stat-item { background: rgba(255, 255, 255, 0.08); }
+.dark-mode .milestone-badge {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+}
+.dark-mode .milestone-badge.locked { opacity: 0.35; }
+.dark-mode .badge-progress-bar { background: rgba(255, 255, 255, 0.15); }
+.dark-mode .badge-progress-fill { background: #2DD4BF; }
+
+/* Quick Actions */
+.dark-mode .quick-actions {
+  border-top: 4px solid #14B8A6;
+}
+.dark-mode .quick-btn {
+  background: #0F172A;
+  border-color: #334155;
+  color: #F1F5F9;
+}
+.dark-mode .quick-btn:hover {
+  background: rgba(20, 184, 166, 0.12);
+  border-color: #14B8A6;
+  color: #2DD4BF;
+}
+
+/* Hydration Card */
+.dark-mode .water-card {
+  background: var(--bg-card);
+  border-top: 4px solid #14B8A6;
+}
+.dark-mode .water-card h2 { color: #F1F5F9; }
+.dark-mode .water-card .card-intro { color: #94A3B8; }
+.dark-mode .water-stats { color: #CBD5E1; }
+.dark-mode .water-progress { background: #334155; }
+.dark-mode .goal-setting-btn {
+  background: #0F172A;
+  border-color: #334155;
+  color: #CBD5E1;
+}
+.dark-mode .goal-setting-btn:hover {
+  border-color: #14B8A6;
+  color: #2DD4BF;
+  background: rgba(20, 184, 166, 0.12);
+}
+.dark-mode .secondary-water {
+  background: #0F172A;
+  border-color: #334155;
+  color: #F1F5F9;
+}
+.dark-mode .secondary-water:hover {
+  border-color: #14B8A6;
+  color: #2DD4BF;
+}
+
+/* Mood & Symptoms Card */
+.dark-mode .mood-card {
+  border-top: 4px solid #8B5CF6;
+}
+.dark-mode .mood-card h2 { color: #F1F5F9; }
+.dark-mode .mood-prompt { color: #CBD5E1; }
+.dark-mode .emoji-btn {
+  background: #0F172A;
+  border-color: #334155;
+}
+.dark-mode .emoji-btn .emoji-label { color: #94A3B8; }
+.dark-mode .emoji-btn:hover {
+  border-color: #A78BFA;
+  background: rgba(139, 92, 246, 0.15);
+}
+.dark-mode .emoji-btn.selected {
+  background: rgba(139, 92, 246, 0.3);
+  border-color: #A78BFA;
+}
+.dark-mode .emoji-btn.selected .emoji-label {
+  color: #DDD6FE;
+  font-weight: 700;
+}
+.dark-mode .symptom-btn {
+  background: #0F172A;
+  border-color: #334155;
+  color: #CBD5E1;
+}
+.dark-mode .symptom-btn:hover {
+  border-color: #A78BFA;
+  color: #FFFFFF;
+  background: rgba(139, 92, 246, 0.2);
+}
+.dark-mode .symptom-btn.selected {
+  background: #7C3AED !important;
+  border-color: #A78BFA !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+/* Form controls & Placeholders */
+.dark-mode .form-label { color: #94A3B8; }
+.dark-mode input,
+.dark-mode select,
+.dark-mode textarea {
+  background-color: #0F172A !important;
+  border-color: #334155 !important;
+  color: #F1F5F9 !important;
+  color-scheme: dark;
+}
+.dark-mode input::placeholder,
+.dark-mode textarea::placeholder {
+  color: #64748B !important;
+  opacity: 1 !important;
+}
+.dark-mode input:focus,
+.dark-mode select:focus,
+.dark-mode textarea:focus {
+  border-color: #14B8A6 !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25) !important;
+}
+
+/* Medicine Schedule */
+.dark-mode .add-med-card { border-top: 4px solid #14B8A6; }
+.dark-mode .list-card { border-top: 4px solid #14B8A6; }
+.dark-mode .medicine-item {
+  background: #0F172A;
+  border-color: #334155;
+}
+.dark-mode .medicine-item strong { color: #F1F5F9; }
+.dark-mode .medicine-item .dosage { color: #94A3B8; }
+.dark-mode .medicine-item .time { color: #2DD4BF; }
+.dark-mode .medicine-item.taken {
+  background: #064E3B;
+  border-color: #047857;
+}
+.dark-mode .medicine-item.taken strong { color: #94A3B8; }
+.dark-mode .medicine-item.skipped {
+  background: #1E293B;
+  border-color: #475569;
+  opacity: 0.5;
+}
+.dark-mode .next-tag {
+  background: #78350F;
+  color: #FEF3C7;
+  border: 1px solid #B45309;
+}
+.dark-mode .take-btn {
+  background: #065F46;
+  color: #6EE7B7;
+  border: 1px solid #059669;
+}
+.dark-mode .take-btn:hover {
+  background: #047857;
+  color: #FFFFFF;
+}
+.dark-mode .skip-btn {
+  background: #1E293B;
+  color: #94A3B8;
+  border: 1px solid #475569;
+}
+.dark-mode .skip-btn:hover {
+  background: #334155;
+  color: #F1F5F9;
+}
+.dark-mode .delete-btn {
+  background: #450A0A;
+  color: #FCA5A5;
+  border: 1px solid #7F1D1D;
+}
+.dark-mode .delete-btn:hover {
+  background: #7F1D1D;
+  color: #FFFFFF;
+}
+
+/* Insight Cards */
+.dark-mode .insight-card {
+  background: #1E293B;
+  border: 1px solid #334155;
+  color: #F1F5F9;
+}
+.dark-mode .insight-card h3 { color: #F1F5F9; }
+.dark-mode .insight-card .muted-copy { color: #94A3B8; }
+.dark-mode .accent-insight {
+  background: #2D2415;
+  border-color: #5C4A26;
+  color: #FEF3C7;
+}
+.dark-mode .accent-insight h3 { color: #FEF3C7; }
+.dark-mode .accent-insight .muted-copy { color: #FDE68A; }
+.dark-mode .accent-insight .eyebrow { color: #FBBF24; }
+
+/* Appointments Section */
+.dark-mode .appointments-card { border-top: 4px solid #3B82F6; }
+.dark-mode .appointment-item {
+  background: #0F172A;
+  border-color: #334155;
+}
+.dark-mode .appointment-item strong { color: #F1F5F9; }
+.dark-mode .appt-doctor { color: #94A3B8; }
+.dark-mode .appt-meta { color: #60A5FA; }
+.dark-mode .countdown-badge {
+  background: #1E3A8A;
+  color: #93C5FD;
+}
+.dark-mode .delete-appt-btn { color: #94A3B8; }
+.dark-mode .delete-appt-btn:hover { color: #F87171; }
+.dark-mode .empty-state { color: #94A3B8; }
+
+/* Vitals & Sleep Displays */
+.dark-mode .vitals-display { border-top: 4px solid #EF4444; }
+.dark-mode .vital-item {
+  background: #0F172A;
+  border-color: #334155;
+}
+.dark-mode .vital-label { color: #94A3B8; }
+.dark-mode .vital-value { color: #F1F5F9; }
+.dark-mode .sleep-display { border-top: 4px solid #8B5CF6; }
+.dark-mode .sleep-stat {
+  background: #0F172A;
+  border-color: #334155;
+}
+.dark-mode .sleep-label { color: #94A3B8; }
+.dark-mode .sleep-value { color: #F1F5F9; }
+
+/* Generic Modals */
+.dark-mode .modal {
+  background: #1E293B;
+  border-color: #334155;
+  color: #F1F5F9;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.5);
+}
+.dark-mode .modal-content h3 { color: #F1F5F9; }
+.dark-mode .modal-content label { color: #94A3B8; }
+.dark-mode .btn-secondary {
+  background: #334155;
+  color: #F1F5F9;
+  border-color: #475569;
+}
+.dark-mode .btn-secondary:hover {
+  background: #475569;
+  color: #FFFFFF;
+}
 
 /* Refined Native Inputs */
 input[type="time"], input[type="date"], input[type="text"], input[type="number"], select, textarea {
@@ -1012,13 +1305,47 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 }
 
 .dark-mode .trend-chart-container {
-  background: #0f172a;
+  background: #0F172A;
   border-color: #334155;
+  color: #CBD5E1;
+}
+
+.dark-mode .trend-chart-header {
+  color: #F1F5F9;
+}
+
+.dark-mode .trend-legend {
+  color: #94A3B8;
+}
+
+.dark-mode .trend-svg text {
+  fill: #94A3B8;
+}
+
+.dark-mode .trend-svg .trend-goal-label {
+  fill: #2DD4BF;
+}
+
+.dark-mode .trend-svg .trend-goal-line {
+  stroke: #14B8A6;
+}
+
+.dark-mode .trend-svg .trend-axis-line {
+  stroke: #334155;
+  opacity: 0.6;
 }
 
 .dark-mode .empty-state-box {
-  background: #0f172a;
+  background: #0F172A;
   border-color: #334155;
+}
+
+.dark-mode .empty-state-title {
+  color: #F1F5F9;
+}
+
+.dark-mode .empty-state-desc {
+  color: #94A3B8;
 }
 
 /* Header Notification Bell */
@@ -1160,6 +1487,20 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   gap: 4px;
 }
 
+/* BMI Spectrum Label Colors */
+.bmi-label-underweight { color: #2563EB; }
+.bmi-label-normal { color: #059669; }
+.bmi-label-overweight { color: #D97706; }
+.bmi-label-obese { color: #DC2626; }
+
+.bmi-needle-outer {
+  fill: #FFFFFF;
+  stroke: #0F172A;
+}
+.bmi-needle-pointer {
+  fill: #0F172A;
+}
+
 .bmi-advice-box {
   background: #F0FDF4;
   border: 1px solid #BBF7D0;
@@ -1192,16 +1533,74 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   background: rgba(0, 0, 0, 0.05);
 }
 
+/* BMI Dark Mode Overrides */
+.dark-mode .bmi-card {
+  border-top-color: #10B981;
+}
+
+.dark-mode .bmi-card .eyebrow {
+  color: #34D399;
+}
+
+.dark-mode .bmi-card h2 {
+  color: #F1F5F9;
+}
+
+.dark-mode .bmi-badge {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid currentColor;
+}
+
+.dark-mode .bmi-gauge-wrap,
+.dark-mode .bmi-stat-box {
+  background: #0F172A;
+  border-color: #334155;
+}
+
+.dark-mode .bmi-stat-label {
+  color: #94A3B8;
+}
+
+.dark-mode .bmi-stat-num {
+  color: #F1F5F9;
+}
+
+.dark-mode .bmi-stat-sub {
+  color: #94A3B8;
+}
+
+.dark-mode .bmi-tick-label {
+  fill: #94A3B8;
+}
+
+.dark-mode .bmi-needle-outer {
+  fill: #1E293B !important;
+  stroke: #F1F5F9 !important;
+}
+
+.dark-mode .bmi-needle-pointer {
+  fill: #F1F5F9 !important;
+}
+
+.dark-mode .bmi-label-underweight { color: #60A5FA; }
+.dark-mode .bmi-label-normal { color: #34D399; }
+.dark-mode .bmi-label-overweight { color: #FBBF24; }
+.dark-mode .bmi-label-obese { color: #F87171; }
+
 .dark-mode .bmi-advice-box {
   background: #064E3B;
   border-color: #047857;
   color: #D1FAE5;
 }
 
-.dark-mode .bmi-gauge-wrap,
-.dark-mode .bmi-stat-box {
-  background: #0f172a;
-  border-color: #334155;
+.dark-mode .bmi-edit-link {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #A7F3D0;
+  color: #FFFFFF;
+}
+
+.dark-mode .bmi-edit-link:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* Profile Setup Modal: Optimized for Desktop, Tablet, and Mobile with NO scrollbars */
@@ -1599,12 +1998,38 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   color: #f1f5f9;
 }
 
-.dark-mode .avatar-preview-circle {
-  background: #0f172a;
+.dark-mode .profile-modal-heading {
+  color: #F1F5F9;
+}
+
+.dark-mode .profile-section-legend {
+  color: #2DD4BF;
+}
+
+.dark-mode .avatar-hint {
+  color: #94A3B8;
+}
+
+.dark-mode .modal-close-icon {
+  color: #94A3B8;
 }
 
 .dark-mode .modal-close-icon:hover {
   background: #334155;
+  color: #F1F5F9;
+}
+
+.dark-mode .avatar-remove-btn {
+  border-color: #7F1D1D;
+  color: #FCA5A5;
+}
+
+.dark-mode .avatar-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.dark-mode .avatar-preview-circle {
+  background: #0f172a;
 }
 
 /* Quick Water Goal Modal */
@@ -1635,6 +2060,14 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   background: #1e293b;
   border-color: #334155;
   color: #f1f5f9;
+}
+
+.dark-mode #goal-modal h3 {
+  color: #F1F5F9;
+}
+
+.dark-mode #goal-modal .card-intro {
+  color: #94A3B8;
 }
 
 /* Print Styles for Doctor Report */

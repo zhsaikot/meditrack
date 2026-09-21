@@ -114,27 +114,27 @@ export function renderBMISpectrumSVG(bmi: number): string {
         <rect x="10" y="16" width="380" height="12" rx="6" fill="url(#bmi-spectrum-gradient)" opacity="0.85" />
 
         <!-- Threshold Tick Marks & Numbers -->
-        <text x="10" y="42" font-size="10" fill="#94A3B8" font-family="system-ui, sans-serif" font-weight="600">15</text>
-        <text x="76" y="42" font-size="10" fill="#94A3B8" font-family="system-ui, sans-serif" font-weight="600">18.5</text>
-        <text x="198" y="42" font-size="10" fill="#94A3B8" font-family="system-ui, sans-serif" font-weight="600">25</text>
-        <text x="293" y="42" font-size="10" fill="#94A3B8" font-family="system-ui, sans-serif" font-weight="600">30</text>
-        <text x="375" y="42" font-size="10" fill="#94A3B8" font-family="system-ui, sans-serif" font-weight="600">35+</text>
+        <text x="10" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">15</text>
+        <text x="76" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">18.5</text>
+        <text x="198" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">25</text>
+        <text x="293" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">30</text>
+        <text x="375" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">35+</text>
 
         <!-- Indicator Needle / Pin -->
         <g transform="translate(${10 + (380 * percent / 100)}, 0)">
           <!-- Outer circle -->
-          <circle cx="0" cy="22" r="9" fill="#FFFFFF" stroke="#0F172A" stroke-width="2.5" />
+          <circle cx="0" cy="22" r="9" fill="#FFFFFF" class="bmi-needle-outer" stroke="#0F172A" stroke-width="2.5" />
           <!-- Inner indicator dot -->
           <circle cx="0" cy="22" r="4.5" fill="#0D9488" />
           <!-- Downward pointer -->
-          <polygon points="0,11 -4,5 4,5" fill="#0F172A" />
+          <polygon points="0,11 -4,5 4,5" class="bmi-needle-pointer" fill="#0F172A" />
         </g>
       </svg>
       <div class="bmi-spectrum-labels">
-        <span style="color:#3B82F6">Underweight</span>
-        <span style="color:#10B981">Normal (18.5–24.9)</span>
-        <span style="color:#F59E0B">Overweight (25–29.9)</span>
-        <span style="color:#EF4444">Obese (30+)</span>
+        <span class="bmi-label-underweight">Underweight</span>
+        <span class="bmi-label-normal">Normal (18.5–24.9)</span>
+        <span class="bmi-label-overweight">Overweight (25–29.9)</span>
+        <span class="bmi-label-obese">Obese (30+)</span>
       </div>
     </div>
   `;

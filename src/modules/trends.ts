@@ -104,10 +104,10 @@ export function renderHydrationChartSVG(hydrationLogs: WaterLog[], goal: number 
   return `
     <svg viewBox="0 0 ${width} ${height}" class="trend-svg" preserveAspectRatio="xMidYMid meet">
       <!-- Grid line for goal -->
-      <line x1="${padding.left}" y1="${goalY}" x2="${width - padding.right}" y2="${goalY}" stroke="#0D9488" stroke-dasharray="4,4" stroke-width="1.5" opacity="0.6" />
-      <text x="${padding.left - 6}" y="${goalY + 4}" text-anchor="end" font-size="9" font-weight="600" fill="#0D9488">${goal}ml</text>
+      <line x1="${padding.left}" y1="${goalY}" x2="${width - padding.right}" y2="${goalY}" stroke="#0D9488" stroke-dasharray="4,4" stroke-width="1.5" opacity="0.6" class="trend-goal-line" />
+      <text x="${padding.left - 6}" y="${goalY + 4}" text-anchor="end" font-size="9" font-weight="600" fill="#0D9488" class="trend-goal-label">${goal}ml</text>
       <!-- Base axis -->
-      <line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" stroke="currentColor" opacity="0.2" stroke-width="1" />
+      <line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" stroke="currentColor" opacity="0.2" stroke-width="1" class="trend-axis-line" />
       ${bars}
     </svg>
   `;
