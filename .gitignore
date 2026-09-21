@@ -1,1 +1,31 @@
-(src/main.ts is a source file, and there are no build artifacts, dependencies, or temporary files in the changes)
+# Dependencies
+node_modules/
+
+# Production build outputs
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+*.env.*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store
+Thumbs.db
