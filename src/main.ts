@@ -609,89 +609,91 @@ function renderApp() {
     <!-- Profile Setup & Settings Modal -->
     <dialog id="profile-modal" class="modal">
       <div class="modal-content profile-modal-content">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
-          <h3 style="margin:0;">Profile & Health Baseline</h3>
-          <button type="button" class="icon-btn" id="close-profile-x" style="border:none; width:30px; height:30px; font-size:1.1rem; cursor:pointer;">✕</button>
-        </div>
-
-        <!-- Avatar Preview & Upload -->
-        <div class="profile-avatar-setup">
-          <div class="avatar-preview-circle" id="profile-avatar-preview">
-            ${profile.avatarUrl ? `<img src="${profile.avatarUrl}" alt="Profile avatar" />` : `<span class="avatar-preview-fallback">👤</span>`}
+        <!-- Top Header with Integrated Avatar -->
+        <div class="profile-header-banner">
+          <div class="profile-avatar-inline">
+            <div class="avatar-preview-circle" id="profile-avatar-preview">
+              ${profile.avatarUrl ? `<img src="${profile.avatarUrl}" alt="Profile avatar" />` : `<span class="avatar-preview-fallback">${firstName ? escapeHtml(firstName[0]) : '👤'}</span>`}
+            </div>
+            <div class="avatar-meta-inline">
+              <div class="avatar-btn-row">
+                <label class="avatar-upload-btn" for="avatar-file-input">
+                  📷 ${profile.avatarUrl ? 'Change' : 'Upload'} Photo
+                </label>
+                <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" />
+                <button type="button" class="avatar-remove-btn" id="remove-avatar-btn" style="${profile.avatarUrl ? '' : 'display:none;'}">Remove</button>
+              </div>
+              <span class="avatar-hint">Stored offline in browser</span>
+            </div>
           </div>
-          <div class="avatar-actions">
-            <label class="avatar-upload-btn" for="avatar-file-input">
-              📷 Upload Photo
-            </label>
-            <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" />
-            <button type="button" class="avatar-remove-btn" id="remove-avatar-btn" style="${profile.avatarUrl ? '' : 'display:none;'}">Remove photo</button>
-            <span style="font-size:0.75rem; color:var(--text-muted);">Stored privately in your browser</span>
+
+          <div class="profile-title-and-close">
+            <h3 class="profile-modal-heading">Profile & Health Baseline</h3>
+            <button type="button" class="modal-close-icon" id="close-profile-x" aria-label="Close modal">✕</button>
           </div>
         </div>
 
         <form id="profile-form">
-          <div class="profile-form-grid">
-            <div class="profile-form-full">
-              <label class="form-label">Full Name
-                <input type="text" id="profile-name" placeholder="e.g. Alex Morgan" value="${escapeHtml(profile.name || '')}" />
-              </label>
+          <!-- 3-Column Balanced Biometrics Grid -->
+          <div class="profile-fields-grid">
+            <div class="field-fullname">
+              <label class="form-label" for="profile-name">Full Name</label>
+              <input type="text" id="profile-name" placeholder="e.g. Alex Morgan" value="${escapeHtml(profile.name || '')}" />
             </div>
 
-            <div>
-              <label class="form-label">Height (cm)
-                <input type="number" id="profile-height" placeholder="170" min="50" max="260" required value="${profile.heightCm || 170}" />
-              </label>
+            <div class="field-blood">
+              <label class="form-label" for="profile-blood-type">Blood Type</label>
+              <select id="profile-blood-type">
+                <option value="A+" ${profile.bloodType === 'A+' ? 'selected' : ''}>A+</option>
+                <option value="A-" ${profile.bloodType === 'A-' ? 'selected' : ''}>A-</option>
+                <option value="B+" ${profile.bloodType === 'B+' ? 'selected' : ''}>B+</option>
+                <option value="B-" ${profile.bloodType === 'B-' ? 'selected' : ''}>B-</option>
+                <option value="AB+" ${profile.bloodType === 'AB+' ? 'selected' : ''}>AB+</option>
+                <option value="AB-" ${profile.bloodType === 'AB-' ? 'selected' : ''}>AB-</option>
+                <option value="O+" ${profile.bloodType === 'O+' ? 'selected' : ''}>O+</option>
+                <option value="O-" ${profile.bloodType === 'O-' ? 'selected' : ''}>O-</option>
+              </select>
             </div>
 
-            <div>
-              <label class="form-label">Current Weight (kg)
-                <input type="number" id="profile-weight" step="0.1" placeholder="70.0" min="20" max="400" required value="${profile.weightKg || 70}" />
-              </label>
+            <div class="field-height">
+              <label class="form-label" for="profile-height">Height (cm)</label>
+              <input type="number" id="profile-height" placeholder="170" min="50" max="260" required value="${profile.heightCm || 170}" />
             </div>
 
-            <div>
-              <label class="form-label">Blood Type
-                <select id="profile-blood-type" style="padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; width: 100%; background: var(--bg-card); color: var(--text-main);">
-                  <option value="A+" ${profile.bloodType === 'A+' ? 'selected' : ''}>A+</option>
-                  <option value="A-" ${profile.bloodType === 'A-' ? 'selected' : ''}>A-</option>
-                  <option value="B+" ${profile.bloodType === 'B+' ? 'selected' : ''}>B+</option>
-                  <option value="B-" ${profile.bloodType === 'B-' ? 'selected' : ''}>B-</option>
-                  <option value="AB+" ${profile.bloodType === 'AB+' ? 'selected' : ''}>AB+</option>
-                  <option value="AB-" ${profile.bloodType === 'AB-' ? 'selected' : ''}>AB-</option>
-                  <option value="O+" ${profile.bloodType === 'O+' ? 'selected' : ''}>O+</option>
-                  <option value="O-" ${profile.bloodType === 'O-' ? 'selected' : ''}>O-</option>
-                </select>
-              </label>
+            <div class="field-weight">
+              <label class="form-label" for="profile-weight">Weight (kg)</label>
+              <input type="number" id="profile-weight" step="0.1" placeholder="70.0" min="20" max="400" required value="${profile.weightKg || 70}" />
             </div>
 
-            <div>
-              <label class="form-label">Daily Water Goal (ml)
-                <input type="number" id="profile-water-goal" placeholder="2000" min="500" max="8000" step="50" required value="${hydrationGoal}" />
-              </label>
-            </div>
-
-            <span class="profile-section-title">Emergency Contact</span>
-
-            <div class="profile-form-full">
-              <label class="form-label">Contact Name
-                <input type="text" id="profile-emergency-name" placeholder="e.g. Jane Doe" value="${escapeHtml(profile.emergencyContact?.name || '')}" />
-              </label>
-            </div>
-
-            <div>
-              <label class="form-label">Phone Number
-                <input type="tel" id="profile-emergency-phone" placeholder="e.g. +1 555-0199" value="${escapeHtml(profile.emergencyContact?.phone || '')}" />
-              </label>
-            </div>
-
-            <div>
-              <label class="form-label">Relationship
-                <input type="text" id="profile-emergency-rel" placeholder="e.g. Spouse, Parent" value="${escapeHtml(profile.emergencyContact?.relationship || '')}" />
-              </label>
+            <div class="field-water">
+              <label class="form-label" for="profile-water-goal">Water Goal (ml)</label>
+              <input type="number" id="profile-water-goal" placeholder="2000" min="500" max="8000" step="50" required value="${hydrationGoal}" />
             </div>
           </div>
 
-          <div class="modal-actions" style="margin-top: 18px;">
+          <!-- Section 2: Compact Emergency Contact Strip -->
+          <div class="emergency-contact-fieldset">
+            <div class="profile-section-legend">Emergency Contact (Optional)</div>
+            <div class="emergency-fields-grid">
+              <div class="field-em-name">
+                <label class="form-label" for="profile-emergency-name">Contact Name</label>
+                <input type="text" id="profile-emergency-name" placeholder="e.g. Jane Doe" value="${escapeHtml(profile.emergencyContact?.name || '')}" />
+              </div>
+
+              <div class="field-em-phone">
+                <label class="form-label" for="profile-emergency-phone">Phone Number</label>
+                <input type="tel" id="profile-emergency-phone" placeholder="e.g. +1 555-0199" value="${escapeHtml(profile.emergencyContact?.phone || '')}" />
+              </div>
+
+              <div class="field-em-rel">
+                <label class="form-label" for="profile-emergency-rel">Relationship</label>
+                <input type="text" id="profile-emergency-rel" placeholder="e.g. Spouse, Parent" value="${escapeHtml(profile.emergencyContact?.relationship || '')}" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div class="profile-modal-actions">
             <button type="button" class="btn-secondary" id="close-profile-btn">Cancel</button>
             <button type="submit" class="btn-primary">Save Profile</button>
           </div>
@@ -928,11 +930,22 @@ function attachEventListeners() {
   });
 
   // Profile Modal Controls
-  const currentProfile = getUserProfile();
-  let stagedAvatarUrl = currentProfile.avatarUrl;
+  let stagedAvatarUrl = getUserProfile().avatarUrl;
 
   const openProfileModal = () => {
-    stagedAvatarUrl = currentProfile.avatarUrl;
+    const prof = getUserProfile();
+    stagedAvatarUrl = prof.avatarUrl;
+    const preview = document.getElementById('profile-avatar-preview');
+    const firstName = prof.name?.trim() ? prof.name.trim().split(' ')[0] : '';
+    if (preview) {
+      preview.innerHTML = prof.avatarUrl 
+        ? `<img src="${prof.avatarUrl}" alt="Profile avatar" />` 
+        : `<span class="avatar-preview-fallback">${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</span>`;
+    }
+    const removeBtn = document.getElementById('remove-avatar-btn');
+    if (removeBtn) {
+      removeBtn.style.display = prof.avatarUrl ? 'inline-block' : 'none';
+    }
     profileModal?.showModal();
   };
 

@@ -1130,36 +1130,60 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   border-color: #334155;
 }
 
-/* Profile Setup Modal */
-.profile-modal-content {
-  max-width: 540px;
-  width: 90vw;
-  max-height: 90vh;
-  overflow-y: auto;
+/* Profile Setup Modal: Optimized for Desktop, Tablet, and Mobile with NO scrollbars */
+#profile-modal {
+  max-width: 650px;
+  width: min(650px, calc(100vw - 28px));
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: var(--bg-card);
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.25);
+  margin: auto;
 }
 
-.profile-avatar-setup {
+#profile-modal::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+#profile-modal .profile-modal-content {
+  padding: 20px 24px 18px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Integrated Header with Inline Avatar */
+.profile-header-banner {
   display: flex;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 20px;
-  padding: 14px 16px;
-  background: var(--bg-primary);
-  border-radius: 14px;
-  border: 1.5px dashed var(--border-color);
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.profile-avatar-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .avatar-preview-circle {
-  width: 72px;
-  height: 72px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  border: 3px solid var(--color-primary);
+  border: 2.5px solid var(--color-primary);
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: #ffffff;
+  background: var(--bg-primary);
   flex-shrink: 0;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .avatar-preview-circle img {
@@ -1170,77 +1194,373 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 }
 
 .avatar-preview-fallback {
-  font-size: 2.2rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--color-primary);
   line-height: 1;
 }
 
-.avatar-actions {
+.avatar-meta-inline {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+}
+
+.avatar-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .avatar-upload-btn {
   background: var(--color-primary);
   color: #ffffff;
   border: none;
-  padding: 7px 14px;
-  border-radius: 8px;
-  font-size: 0.82rem;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 0.76rem;
   font-weight: 600;
   cursor: pointer;
   display: inline-block;
-  text-align: center;
-  transition: background 0.2s;
+  transition: background 0.15s, transform 0.1s;
 }
 
 .avatar-upload-btn:hover {
   background: var(--color-primary-hover);
+  transform: translateY(-1px);
 }
 
 .avatar-remove-btn {
   background: transparent;
   border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  padding: 4px 10px;
+  color: #EF4444;
+  padding: 4px 8px;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 .avatar-remove-btn:hover {
   border-color: #EF4444;
-  color: #EF4444;
+  background: rgba(239, 68, 68, 0.08);
 }
 
-.profile-form-grid {
+.avatar-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.profile-title-and-close {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-modal-heading {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text-main);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.modal-close-icon {
+  background: transparent;
+  border: none;
+  font-size: 1.15rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.modal-close-icon:hover {
+  background: var(--bg-primary);
+  color: var(--text-main);
+}
+
+/* 3-Column Balanced Fields Grid */
+.profile-fields-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 14px;
 }
 
-.profile-form-full {
-  grid-column: 1 / -1;
+.field-fullname {
+  grid-column: span 2;
 }
 
-.profile-section-title {
-  font-size: 0.78rem;
+.field-blood {
+  grid-column: span 1;
+}
+
+.field-height {
+  grid-column: span 1;
+}
+
+.field-weight {
+  grid-column: span 1;
+}
+
+.field-water {
+  grid-column: span 1;
+}
+
+#profile-modal input,
+#profile-modal select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 11px;
+  font-size: 0.88rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+#profile-modal input:focus,
+#profile-modal select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+}
+
+#profile-modal .form-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Emergency Contact Fieldset */
+.emergency-contact-fieldset {
+  margin-top: 10px;
+  padding: 10px 14px 12px;
+  background: var(--bg-primary);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.profile-section-legend {
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-primary);
+  margin-bottom: 6px;
+}
+
+.emergency-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 14px;
+}
+
+.field-em-name,
+.field-em-phone,
+.field-em-rel {
+  grid-column: span 1;
+}
+
+/* Modal Actions */
+.profile-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
   margin-top: 14px;
-  margin-bottom: 4px;
-  grid-column: 1 / -1;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 4px;
+}
+
+.profile-modal-actions .btn-secondary {
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  border-radius: 8px;
+}
+
+.profile-modal-actions .btn-primary {
+  padding: 8px 20px;
+  font-size: 0.88rem;
+  border-radius: 8px;
+}
+
+/* Mobile Responsiveness (< 600px) */
+@media (max-width: 599px) {
+  #profile-modal {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    margin: 8px auto;
+    border-radius: 14px;
+  }
+
+  #profile-modal .profile-modal-content {
+    padding: 14px 12px 12px;
+  }
+
+  .profile-header-banner {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+  }
+
+  .profile-title-and-close {
+    width: 100%;
+    order: -1;
+    justify-content: space-between;
+  }
+
+  .profile-modal-heading {
+    font-size: 0.98rem;
+  }
+
+  .profile-fields-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 8px;
+  }
+
+  .field-fullname {
+    grid-column: 1 / -1;
+  }
+
+  .field-blood {
+    grid-column: span 1;
+  }
+
+  .field-water {
+    grid-column: span 1;
+  }
+
+  .field-height {
+    grid-column: span 1;
+  }
+
+  .field-weight {
+    grid-column: span 1;
+  }
+
+  .emergency-fields-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 8px;
+  }
+
+  .field-em-name {
+    grid-column: 1 / -1;
+  }
+
+  .field-em-phone {
+    grid-column: span 1;
+  }
+
+  .field-em-rel {
+    grid-column: span 1;
+  }
+
+  #profile-modal input,
+  #profile-modal select {
+    padding: 7px 9px;
+    font-size: 0.84rem;
+  }
+
+  #profile-modal .form-label {
+    font-size: 0.7rem;
+    margin-bottom: 2px;
+  }
+
+  .emergency-contact-fieldset {
+    margin-top: 8px;
+    padding: 8px 10px 10px;
+  }
+
+  .profile-modal-actions {
+    margin-top: 10px;
+  }
+}
+
+/* Fallback for ultra-short landscape viewports (e.g. rotated mobile screens) */
+@media (max-height: 500px) {
+  #profile-modal {
+    max-height: 96vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  #profile-modal::-webkit-scrollbar {
+    display: none;
+  }
+  #profile-modal .profile-modal-content {
+    overflow-y: visible;
+  }
+}
+
+/* Dark mode adjustments */
+.dark-mode #profile-modal {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .profile-header-banner,
+.dark-mode .emergency-contact-fieldset {
+  border-color: #334155;
+}
+
+.dark-mode .emergency-contact-fieldset {
+  background: #0f172a;
+}
+
+.dark-mode #profile-modal input,
+.dark-mode #profile-modal select {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark-mode .avatar-preview-circle {
+  background: #0f172a;
+}
+
+.dark-mode .modal-close-icon:hover {
+  background: #334155;
 }
 
 /* Quick Water Goal Modal */
+#goal-modal {
+  max-width: 400px;
+  width: min(400px, calc(100vw - 32px));
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-card);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  margin: auto;
+}
+
+#goal-modal::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
 .goal-modal-content {
-  max-width: 380px;
-  width: 90vw;
+  padding: 20px 22px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dark-mode #goal-modal {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
 }
 
 /* Print Styles for Doctor Report */
