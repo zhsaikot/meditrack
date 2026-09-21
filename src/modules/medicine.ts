@@ -155,6 +155,15 @@ export function getTodaysProgress(): { taken: number; total: number; percentage:
   return { taken, total, percentage };
 }
 
-export function getLowInventoryMedicines(threshold: number = 10): Medicine[] {
-  return appData.medicines.filter((m) => m.inventory < threshold);
+export function getLowInventoryMedicines(threshold: number = 5): Medicine[] {
+  return appData.medicines.filter((m) => m.inventory <= threshold);
 }
+
+export function refillMedicine(id: string, amount: number = 30): void {
+  const medicine = appData.medicines.find((m) => m.id === id);
+  if (medicine) {
+    medicine.inventory += amount;
+    saveAppData(appData);
+  }
+}
+

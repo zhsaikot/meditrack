@@ -21,9 +21,38 @@ import { initVitalsModule, addVitalsLog, getLatestVitals, getVitalsAverages } fr
 import { initSleepModule, addSleepLog, getLatestSleep, getSleepAverage } from './modules/sleep'
 import { initJournalModule, getMoodAverage } from './modules/journal'
 import { initHydrationModule, getHydrationGoal, setHydrationGoal } from './modules/hydration'
-import { initMedicineModule, getTodayMedicineList, markMedicineTaken, markMedicineSkipped, unmarkMedicine, getTodaysProgress } from './modules/medicine'
-import { initAppointmentsModule, getUpcomingAppointments, addAppointment, deleteAppointment, formatAppointmentDisplay, getNextAppointment } from './modules/appointments'
+import { 
+  initMedicineModule, 
+  getTodayMedicineList, 
+  markMedicineTaken, 
+  markMedicineSkipped, 
+  unmarkMedicine, 
+  getTodaysProgress,
+  refillMedicine,
+  getLowInventoryMedicines
+} from './modules/medicine'
+import { 
+  initAppointmentsModule, 
+  getUpcomingAppointments, 
+  addAppointment, 
+  deleteAppointment, 
+  formatAppointmentDisplay, 
+  getNextAppointment 
+} from './modules/appointments'
 import { getHealthInsight, formatTime, escapeHtml } from './utils'
+import { 
+  requestNotificationPermission, 
+  getNotificationPermission, 
+  startReminderScheduler,
+  sendLocalNotification
+} from './modules/notifications'
+import { 
+  getMilestones, 
+  renderHydrationChartSVG, 
+  renderMoodSleepChartSVG, 
+  calculateCorrelationInsight 
+} from './modules/trends'
+import { printDoctorReport } from './modules/report'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -31,13 +60,16 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 let appState = {
   currentMood: 0,
   currentSymptoms: [] as string[],
-  isDarkMode: false
+  isDarkMode: false,
+  notificationsEnabled: false
 };
 
 // Load saved state
 function loadAppState() {
   const data = getAppData();
   appState.isDarkMode = data.settings.theme === 'dark';
+  appState.notificationsEnabled = data.settings.notificationsEnabled || false;
+
   if (appState.isDarkMode) {
     document.documentElement.classList.add('dark-mode');
   } else {
@@ -58,17 +90,33 @@ function loadAppState() {
     appState.currentMood = todayMood.mood;
     appState.currentSymptoms = [...todayMood.symptoms];
   }
+
+  // Start notification scheduler
+  if (appState.notificationsEnabled) {
+    startReminderScheduler(() => {
+      const list = getTodayMedicineList();
+      return list
+        .filter(({ log }) => !log?.taken && !log?.skipped)
+        .map(({ medicine }) => ({
+          name: medicine.name,
+          dosage: medicine.dosage,
+          time: medicine.time
+        }));
+    });
+  }
 }
 
 function saveAppState() {
   const data = getAppData();
   data.settings.theme = appState.isDarkMode ? 'dark' : 'light';
+  data.settings.notificationsEnabled = appState.notificationsEnabled;
   saveAppData(data);
 }
 
 function renderApp() {
   resetWaterIfNewDay();
   const data = getAppData();
+  const medicines = getMedicines();
   const waterAmount = getTodayWater();
   const hydrationGoal = getHydrationGoal();
   const waterProgress = Math.min((waterAmount / hydrationGoal) * 100, 100);
@@ -85,9 +133,12 @@ function renderApp() {
   const moodAvg = getMoodAverage(7);
   
   const streakDays = calculateStreak(moodEntries);
+  const milestoneData = getMilestones(streakDays);
+  const lowInventoryMeds = getLowInventoryMedicines(5);
+
   const todaysMedList = getTodayMedicineList();
   const nextMedicine = todaysMedList
-    .filter(({ log }) => !log?.taken)
+    .filter(({ log }) => !log?.taken && !log?.skipped)
     .sort((a, b) => a.medicine.time.localeCompare(b.medicine.time))[0];
   const latestMood = moodEntries[0];
   const todayLabel = new Intl.DateTimeFormat('en-US', {
@@ -101,6 +152,12 @@ function renderApp() {
     medicineAdherence: adherenceRate
   });
 
+  const correlationInsight = calculateCorrelationInsight(
+    data.hydrationLogs,
+    data.sleepLogs,
+    data.moodEntries
+  );
+
   const medicineListHTML = todaysMedList.map(({ medicine, log }) => `
     <div class="medicine-item ${log?.taken ? 'taken' : log?.skipped ? 'skipped' : ''}">
       <div class="med-info">
@@ -108,11 +165,16 @@ function renderApp() {
           <strong>${escapeHtml(medicine.name)}</strong>
           <span class="dosage">(${escapeHtml(medicine.dosage)})</span>
         </div>
-        <div class="time">🕐 ${formatTime(medicine.time)}${nextMedicine?.medicine.id === medicine.id && !log?.taken ? ' · <span class="next-tag">Next</span>' : ''}</div>
-        ${medicine.inventory <= 5 ? `<div class="low-stock">⚠️ Low stock: ${medicine.inventory} left</div>` : ''}
+        <div class="time">🕐 ${formatTime(medicine.time)}${nextMedicine?.medicine.id === medicine.id && !log?.taken && !log?.skipped ? ' · <span class="next-tag">Next Up</span>' : ''}</div>
+        ${medicine.inventory <= 5 ? `
+          <div class="low-stock">
+            <span>⚠️ Low supply: ${medicine.inventory} dose${medicine.inventory === 1 ? '' : 's'} left</span>
+            <button class="refill-btn" data-id="${medicine.id}" title="Restock 30 doses">+30 Refill</button>
+          </div>
+        ` : ''}
       </div>
       <div class="med-actions">
-        ${!log?.taken ? `
+        ${!log?.taken && !log?.skipped ? `
           <button class="action-btn take-btn" data-id="${medicine.id}" title="Mark as taken" aria-label="Mark as taken">✓</button>
           <button class="action-btn skip-btn" data-id="${medicine.id}" title="Skip today" aria-label="Skip today">⊘</button>
         ` : `
@@ -166,6 +228,10 @@ function renderApp() {
           </div>
         </div>
         <div class="header-actions">
+          <button class="icon-btn ${appState.notificationsEnabled ? 'notification-bell active' : 'notification-bell'}" id="toggle-notifications-btn" title="${appState.notificationsEnabled ? 'Reminders Active' : 'Enable Reminders'}">
+            ${appState.notificationsEnabled ? '🔔' : '🔕'}
+          </button>
+          <button class="icon-btn" id="doctor-report-btn" title="Print Doctor Health Report">📋</button>
           <button class="icon-btn" id="toggle-theme-btn" title="Toggle Dark Mode">
             ${appState.isDarkMode ? '☀️' : '🌙'}
           </button>
@@ -190,7 +256,7 @@ function renderApp() {
         <div class="welcome-orbit" aria-hidden="true"><span>✦</span></div>
       </section>
 
-      <!-- Statistics Card -->
+      <!-- Statistics Card with Gamified Milestones -->
       <section class="card stats-card">
         <div class="section-heading light-heading">
           <div><p class="eyebrow">AT A GLANCE</p><h2>Today's overview</h2></div>
@@ -214,9 +280,24 @@ function renderApp() {
             <div class="stat-label">Check-in Streak</div>
           </div>
         </div>
+
+        <!-- Milestones Strip -->
+        <div class="milestones-strip">
+          ${milestoneData.milestones.map(m => `
+            <div class="milestone-badge ${m.unlocked ? '' : 'locked'}" title="${m.description}">
+              <span>${m.icon}</span>
+              <span>${m.title}</span>
+            </div>
+          `).join('')}
+        </div>
+        ${milestoneData.nextBadge ? `
+          <div class="badge-progress-bar" title="Next Badge: ${milestoneData.nextBadge.title} (${milestoneData.progressToNext}% to goal)">
+            <div class="badge-progress-fill" style="width: ${milestoneData.progressToNext}%"></div>
+          </div>
+        ` : ''}
       </section>
 
-      <!-- Quick Actions -->
+      <!-- Quick Actions Bar -->
       <section class="card quick-actions">
         <div class="section-heading">
           <div><p class="eyebrow">QUICK LOG</p><h2>Record vitals, sleep & visits</h2></div>
@@ -224,15 +305,15 @@ function renderApp() {
         <div class="quick-grid">
           <button class="quick-btn" id="show-vitals-btn">❤️ Log Vitals</button>
           <button class="quick-btn" id="show-sleep-btn">😴 Log Sleep</button>
-          <button class="quick-btn" id="show-appointment-btn">📅 Add Appointment</button>
+          <button class="quick-btn" id="show-appointment-btn">📅 Add Visit</button>
         </div>
       </section>
 
-      <!-- Water Tracker -->
+      <!-- Harmonized Hydration Tracker -->
       <section class="card water-card">
-        <div class="section-heading light-heading">
+        <div class="section-heading">
           <div><p class="eyebrow">BODY RHYTHM</p><h2>Hydration</h2></div>
-          <span class="water-icon">◌</span>
+          <span class="water-icon">💧</span>
         </div>
         <p class="card-intro">Small sips add up. You are ${waterAmount >= hydrationGoal ? 'at your daily goal! 🎉' : `${hydrationGoal - waterAmount}ml from your goal`}.</p>
         <div class="water-progress">
@@ -266,15 +347,49 @@ function renderApp() {
 
         <p class="mood-prompt">Any symptoms?</p>
         <div class="symptom-grid">
-          ${symptomsList.map(s => `
-            <button class="symptom-btn ${appState.currentSymptoms.includes(s) ? 'selected' : ''}" data-symptom="${s}">
-              ${s}
-            </button>
-          `).join('')}
+          ${symptomsList.map(s => {
+            const isSelected = appState.currentSymptoms.includes(s);
+            return `
+              <button class="symptom-btn ${isSelected ? 'selected' : ''}" data-symptom="${s}">
+                ${isSelected ? '✓ ' : ''}${s}
+              </button>
+            `;
+          }).join('')}
         </div>
 
         <textarea id="mood-notes" placeholder="Add journal notes or how you're feeling..." rows="3">${escapeHtml(notesValue)}</textarea>
         <button class="btn-primary" id="save-mood-btn">Save today's check-in <span>→</span></button>
+      </section>
+
+      <!-- Weekly Trends & Correlations -->
+      <section class="card trends-card">
+        <div class="section-heading">
+          <div><p class="eyebrow">WEEKLY REVIEW</p><h2>Behavioral Trends</h2></div>
+          <span class="section-icon">📈</span>
+        </div>
+
+        <div class="trend-chart-container">
+          <div class="trend-chart-header">
+            <span>Hydration vs Goal (Last 7 Days)</span>
+            <span class="trend-legend"><span class="legend-item"><span class="legend-color" style="background:#0D9488"></span> Goal Met</span></span>
+          </div>
+          ${renderHydrationChartSVG(data.hydrationLogs, hydrationGoal)}
+        </div>
+
+        <div class="trend-chart-container">
+          <div class="trend-chart-header">
+            <span>Mood & Sleep Duration</span>
+            <div class="trend-legend">
+              <span class="legend-item"><span class="legend-color" style="background:#8B5CF6"></span> Mood (1-5★)</span>
+              <span class="legend-item"><span class="legend-color" style="background:#3B82F6"></span> Sleep (hrs)</span>
+            </div>
+          </div>
+          ${renderMoodSleepChartSVG(data.moodEntries, data.sleepLogs)}
+        </div>
+
+        <div class="correlation-box">
+          ${correlationInsight}
+        </div>
       </section>
 
       <!-- Latest Vitals Display -->
@@ -339,7 +454,7 @@ function renderApp() {
                 <option value="weekends">Weekends only</option>
               </select>
             </label>
-            <label class="form-label">Pill Inventory:
+            <label class="form-label">Initial Supply:
               <input type="number" id="med-inventory" placeholder="Pills left" min="0" value="30" />
             </label>
           </div>
@@ -347,13 +462,28 @@ function renderApp() {
         </form>
       </section>
 
-      <section class="card list-card">
+      <!-- Medicine Schedule Card with Empty State Routing -->
+      <section class="card list-card" id="medicine-schedule-section">
         <div class="section-heading">
           <div><p class="eyebrow">SCHEDULE</p><h2>Today's medicines</h2></div>
           <span class="progress-pill">${medProgress.taken} / ${medProgress.total} taken</span>
         </div>
+
+        ${lowInventoryMeds.length > 0 ? `
+          <div class="refill-alert-banner">
+            <span>⚠️ Refill Alert: <strong>${lowInventoryMeds.length} medication${lowInventoryMeds.length > 1 ? 's have' : ' has'}</strong> 5 or fewer doses remaining.</span>
+          </div>
+        ` : ''}
+
         <div id="medicine-list">
-          ${todaysMedList.length === 0 ? '<p class="empty-state">No medicines scheduled for today. Add one above!</p>' : medicineListHTML}
+          ${todaysMedList.length === 0 ? `
+            <div class="empty-state-box">
+              <div class="empty-state-icon">💊</div>
+              <h3 class="empty-state-title">No medicines scheduled for today</h3>
+              <p class="empty-state-desc">Stay on track with your prescription regimen. Add your daily medications or vitamins to get started.</p>
+              <button class="empty-state-btn" id="empty-add-med-btn">＋ Add Your First Medicine</button>
+            </div>
+          ` : medicineListHTML}
         </div>
       </section>
 
@@ -364,7 +494,7 @@ function renderApp() {
           <span class="progress-pill">${upcomingAppts.length} scheduled</span>
         </div>
         <div id="appointments-list">
-          ${upcomingAppts.length === 0 ? '<p class="empty-state">No upcoming appointments. Click "Add Appointment" above to schedule one.</p>' : appointmentListHTML}
+          ${upcomingAppts.length === 0 ? '<p class="empty-state">No upcoming appointments. Click "Add Visit" above to schedule one.</p>' : appointmentListHTML}
         </div>
       </section>
     </div>
@@ -427,6 +557,32 @@ function renderApp() {
 }
 
 function attachEventListeners() {
+  const data = getAppData();
+
+  // Notification Bell Toggle
+  document.getElementById('toggle-notifications-btn')?.addEventListener('click', async () => {
+    if (!appState.notificationsEnabled) {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        appState.notificationsEnabled = true;
+        saveAppState();
+        sendLocalNotification('Notifications Active 🔔', 'MediTrack will remind you when it is time for your medication.');
+        renderApp();
+      } else {
+        alert('Notification permission was not granted. You can enable it in your browser settings.');
+      }
+    } else {
+      appState.notificationsEnabled = false;
+      saveAppState();
+      renderApp();
+    }
+  });
+
+  // Doctor Report Trigger
+  document.getElementById('doctor-report-btn')?.addEventListener('click', () => {
+    printDoctorReport(data);
+  });
+
   // Theme Toggle
   document.getElementById('toggle-theme-btn')?.addEventListener('click', () => {
     appState.isDarkMode = !appState.isDarkMode;
@@ -440,6 +596,13 @@ function attachEventListeners() {
 
   // Import Data
   document.getElementById('import-file')?.addEventListener('change', importData);
+
+  // Empty State Routing Button
+  document.getElementById('empty-add-med-btn')?.addEventListener('click', () => {
+    const form = document.getElementById('add-med-form');
+    form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    (document.getElementById('med-name') as HTMLInputElement)?.focus();
+  });
 
   // Medicine Form
   const form = document.getElementById('add-med-form') as HTMLFormElement;
@@ -460,7 +623,7 @@ function attachEventListeners() {
     renderApp();
   });
 
-  // Medicine Actions (Take, Skip, Undo & Delete)
+  // Medicine Actions (Take, Skip, Undo, Refill & Delete)
   document.querySelectorAll('.take-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
@@ -481,6 +644,15 @@ function attachEventListeners() {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
       unmarkMedicine(id);
+      renderApp();
+    });
+  });
+
+  document.querySelectorAll('.refill-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
+      refillMedicine(id, 30);
+      alert('Inventory restocked +30 doses! 💊');
       renderApp();
     });
   });
@@ -689,7 +861,9 @@ function updateEmojiUI() {
 function updateSymptomUI() {
   document.querySelectorAll('.symptom-btn').forEach(btn => {
     const symptom = btn.getAttribute('data-symptom')!;
-    btn.classList.toggle('selected', appState.currentSymptoms.includes(symptom));
+    const isSelected = appState.currentSymptoms.includes(symptom);
+    btn.classList.toggle('selected', isSelected);
+    btn.innerHTML = `${isSelected ? '✓ ' : ''}${symptom}`;
   });
 }
 
