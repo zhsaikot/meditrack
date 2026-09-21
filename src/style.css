@@ -1,3 +1,7 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   --color-primary: #0D9488;
   --color-primary-hover: #0F766E;
@@ -261,39 +265,50 @@ input {
 }
 
 .emoji-grid {
-  display: flex;
-  justify-content: space-between;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
   margin-bottom: 20px;
+  width: 100%;
 }
 
 .emoji-btn {
-  flex: 1;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   background: var(--bg-primary);
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
-  padding: 10px 5px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 2px;
   cursor: pointer;
   transition: all 0.2s;
+  overflow: hidden;
 }
 
 .emoji-btn.selected {
   border-color: #8B5CF6;
   background: #F5F3FF;
-  transform: scale(1.05);
+  transform: translateY(-2px);
 }
 
 .emoji-icon {
-  font-size: 1.8rem;
-  margin-bottom: 5px;
+  font-size: 1.55rem;
+  margin-bottom: 4px;
+  line-height: 1;
 }
 
 .emoji-label {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
+  text-align: center;
+  display: block;
 }
 
 .symptom-grid {
@@ -612,14 +627,34 @@ body {
 }
 
 @media (max-width: 600px) {
-  .container { padding: 22px 15px 40px; }
+  .container { padding: 18px 12px 40px; }
+  .card { padding: 18px 14px; }
   .main-header { align-items: flex-start; }
   .date-strip-note { display: none; }
-  .welcome-panel { padding: 23px; }
-  .welcome-orbit { width: 68px; height: 68px; flex: 0 0 auto; margin-right: 0; font-size: 1.5rem; }
+  .welcome-panel { padding: 20px; }
+  .welcome-orbit { width: 64px; height: 64px; flex: 0 0 auto; margin-right: 0; font-size: 1.4rem; }
   .insight-row { display: block; }
   .insight-card { min-height: 0; }
   .quick-grid { grid-template-columns: 1fr; }
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .emoji-grid {
+    gap: 4px;
+  }
+  .emoji-btn {
+    padding: 8px 1px;
+    border-radius: 10px;
+  }
+  .emoji-icon {
+    font-size: 1.35rem;
+    margin-bottom: 2px;
+  }
+  .emoji-label {
+    font-size: 0.65rem;
+    letter-spacing: -0.02em;
+  }
 }
 
 .dark-mode body { background-color: #102725; background-image: radial-gradient(rgba(220, 242, 232, .06) 1px, transparent 1px); }
@@ -671,9 +706,48 @@ body {
 .btn-secondary { background: var(--bg-primary); border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 8px; cursor: pointer; color: var(--text-main); }
 
 /* Form controls */
-.form-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-select { padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; background: var(--bg-card); color: var(--text-main); }
+.form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 100%;
+}
+
+.form-label select,
+.form-label input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-row > * {
+  min-width: 0;
+}
+
+select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: var(--bg-card);
+  color: var(--text-main);
+}
 
 /* Medicine Items */
 .med-title-row { display: flex; align-items: baseline; gap: 6px; }
