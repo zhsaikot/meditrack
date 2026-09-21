@@ -71,7 +71,81 @@ export function formatDateDisplay(dateString: string): string {
 function loadAppData(): AppData {
   const data = localStorage.getItem(STORAGE_KEY);
   if (!data) {
-    return { ...DEFAULT_DATA };
+    // Migration from legacy localStorage format if available
+    const legacyMeds = localStorage.getItem('meditrack_medicines');
+    const legacyWater = localStorage.getItem('meditrack_water');
+    const legacyMood = localStorage.getItem('meditrack_mood');
+    const legacyState = localStorage.getItem('meditrack_state');
+
+    if (legacyMeds || legacyWater || legacyMood || legacyState) {
+      const migrated: AppData = { ...DEFAULT_DATA, settings: { ...DEFAULT_DATA.settings } };
+      const today = getTodayDateString();
+
+      if (legacyMeds) {
+        try {
+          const parsed = JSON.parse(legacyMeds);
+          if (Array.isArray(parsed)) {
+            migrated.medicines = parsed.map((m: any) => ({
+              id: m.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              name: m.name || '',
+              dosage: m.dosage || '',
+              time: m.time || '08:00',
+              taken: false,
+              frequency: m.frequency || 'daily',
+              specificDays: m.specificDays || [],
+              inventory: typeof m.inventory === 'number' ? m.inventory : 30,
+              notes: m.notes || '',
+              createdAt: m.createdAt || new Date().toISOString()
+            }));
+
+            parsed.filter((m: any) => m.taken).forEach((m: any) => {
+              migrated.medicineLogs.push({
+                medicineId: m.id,
+                date: today,
+                taken: true,
+                takenAt: new Date().toISOString()
+              });
+            });
+          }
+        } catch (e) {}
+      }
+
+      if (legacyWater) {
+        try {
+          const parsed = JSON.parse(legacyWater);
+          if (parsed && typeof parsed.amount === 'number') {
+            migrated.hydrationLogs.push({
+              date: parsed.date || today,
+              amount: parsed.amount,
+              goal: 2000
+            });
+          }
+        } catch (e) {}
+      }
+
+      if (legacyMood) {
+        try {
+          const parsed = JSON.parse(legacyMood);
+          if (Array.isArray(parsed)) {
+            migrated.moodEntries = parsed;
+          }
+        } catch (e) {}
+      }
+
+      if (legacyState) {
+        try {
+          const parsed = JSON.parse(legacyState);
+          if (parsed && parsed.isDarkMode) {
+            migrated.settings.theme = 'dark';
+          }
+        } catch (e) {}
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+
+    return { ...DEFAULT_DATA, settings: { ...DEFAULT_DATA.settings } };
   }
   try {
     const parsed = JSON.parse(data);
@@ -82,7 +156,7 @@ function loadAppData(): AppData {
     };
   } catch (error) {
     console.error("Failed to parse app data", error);
-    return { ...DEFAULT_DATA };
+    return { ...DEFAULT_DATA, settings: { ...DEFAULT_DATA.settings } };
   }
 }
 
@@ -116,12 +190,35 @@ export function exportAllData(): string {
 export function importAllData(jsonString: string): boolean {
   try {
     const data = JSON.parse(jsonString);
-    if (data.medicines || data.moodEntries || data.settings) {
-      saveAppData({
-        ...DEFAULT_DATA,
-        ...data,
-        settings: { ...DEFAULT_DATA.settings, ...data.settings }
-      });
+    if (!data || typeof data !== 'object') return false;
+
+    // Handle legacy format water property
+    if (data.water && typeof data.water === 'string') {
+      try {
+        const waterObj = JSON.parse(data.water);
+        if (waterObj.amount) {
+          data.hydrationLogs = [{
+            date: waterObj.date || getTodayDateString(),
+            amount: waterObj.amount,
+            goal: 2000
+          }];
+        }
+      } catch (e) {}
+    }
+
+    if (Array.isArray(data.medicines) || Array.isArray(data.moodEntries) || data.settings) {
+      const current = getAppData();
+      const newAppData: AppData = {
+        medicines: Array.isArray(data.medicines) ? data.medicines : current.medicines,
+        medicineLogs: Array.isArray(data.medicineLogs) ? data.medicineLogs : current.medicineLogs,
+        hydrationLogs: Array.isArray(data.hydrationLogs) ? data.hydrationLogs : current.hydrationLogs,
+        moodEntries: Array.isArray(data.moodEntries) ? data.moodEntries : current.moodEntries,
+        vitalsLogs: Array.isArray(data.vitalsLogs) ? data.vitalsLogs : current.vitalsLogs,
+        sleepLogs: Array.isArray(data.sleepLogs) ? data.sleepLogs : current.sleepLogs,
+        appointments: Array.isArray(data.appointments) ? data.appointments : current.appointments,
+        settings: { ...DEFAULT_DATA.settings, ...(data.settings || current.settings) }
+      };
+      saveAppData(newAppData);
       return true;
     }
     return false;

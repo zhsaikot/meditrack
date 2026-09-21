@@ -4,7 +4,6 @@ import { Medicine, MoodEntry, VitalsLog, SleepLog, Appointment } from './types'
 import { 
   getMedicines, 
   addMedicine, 
-  toggleMedicine, 
   deleteMedicine,
   getTodayWater, 
   addWater, 
@@ -15,15 +14,16 @@ import {
   getAppData,
   saveAppData,
   exportAllData,
-  importAllData
+  importAllData,
+  getTodayDateString
 } from './storage'
 import { initVitalsModule, addVitalsLog, getLatestVitals, getVitalsAverages } from './modules/vitals'
 import { initSleepModule, addSleepLog, getLatestSleep, getSleepAverage } from './modules/sleep'
-import { initJournalModule, getMoodHistory, getMoodAverage } from './modules/journal'
-import { initHydrationModule, getHydrationGoal, setHydrationGoal, getTodaysHydration } from './modules/hydration'
+import { initJournalModule, getMoodAverage } from './modules/journal'
+import { initHydrationModule, getHydrationGoal, setHydrationGoal } from './modules/hydration'
 import { initMedicineModule, getTodayMedicineList, markMedicineTaken, markMedicineSkipped, unmarkMedicine, getTodaysProgress } from './modules/medicine'
-import { initAppointmentsModule, getAppointments, addAppointment, getNextAppointment } from './modules/appointments'
-import { getHealthInsight, formatTime } from './utils'
+import { initAppointmentsModule, getUpcomingAppointments, addAppointment, deleteAppointment, formatAppointmentDisplay, getNextAppointment } from './modules/appointments'
+import { getHealthInsight, formatTime, escapeHtml } from './utils'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -31,19 +31,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 let appState = {
   currentMood: 0,
   currentSymptoms: [] as string[],
-  isDarkMode: false,
-  vitalsForm: {
-    heartRate: '',
-    weight: '',
-    temperature: '',
-    systolic: '',
-    diastolic: ''
-  },
-  sleepForm: {
-    bedtime: '23:00',
-    wakeTime: '07:00',
-    quality: 3
-  }
+  isDarkMode: false
 };
 
 // Load saved state
@@ -52,6 +40,8 @@ function loadAppState() {
   appState.isDarkMode = data.settings.theme === 'dark';
   if (appState.isDarkMode) {
     document.documentElement.classList.add('dark-mode');
+  } else {
+    document.documentElement.classList.remove('dark-mode');
   }
   
   // Initialize modules
@@ -79,7 +69,6 @@ function saveAppState() {
 function renderApp() {
   resetWaterIfNewDay();
   const data = getAppData();
-  const medicines = getMedicines();
   const waterAmount = getTodayWater();
   const hydrationGoal = getHydrationGoal();
   const waterProgress = Math.min((waterAmount / hydrationGoal) * 100, 100);
@@ -87,13 +76,13 @@ function renderApp() {
   const latestVitals = getLatestVitals();
   const latestSleep = getLatestSleep();
   const nextAppt = getNextAppointment();
+  const upcomingAppts = getUpcomingAppointments();
   
   // Calculate stats
   const medProgress = getTodaysProgress();
   const adherenceRate = medProgress.percentage;
   const sleepAvg = getSleepAverage(7);
   const moodAvg = getMoodAverage(7);
-  const vitalsAvg = getVitalsAverages(7);
   
   const streakDays = calculateStreak(moodEntries);
   const todaysMedList = getTodayMedicineList();
@@ -113,23 +102,45 @@ function renderApp() {
   });
 
   const medicineListHTML = todaysMedList.map(({ medicine, log }) => `
-    <div class="medicine-item ${log?.taken ? 'taken' : ''}">
+    <div class="medicine-item ${log?.taken ? 'taken' : log?.skipped ? 'skipped' : ''}">
       <div class="med-info">
-        <strong>${medicine.name}</strong> <span class="dosage">(${medicine.dosage})</span>
-        <div class="time">🕐 ${formatTime(medicine.time)}${nextMedicine?.medicine.id === medicine.id && !log?.taken ? ' · Next' : ''}</div>
+        <div class="med-title-row">
+          <strong>${escapeHtml(medicine.name)}</strong>
+          <span class="dosage">(${escapeHtml(medicine.dosage)})</span>
+        </div>
+        <div class="time">🕐 ${formatTime(medicine.time)}${nextMedicine?.medicine.id === medicine.id && !log?.taken ? ' · <span class="next-tag">Next</span>' : ''}</div>
         ${medicine.inventory <= 5 ? `<div class="low-stock">⚠️ Low stock: ${medicine.inventory} left</div>` : ''}
       </div>
       <div class="med-actions">
         ${!log?.taken ? `
-          <button class="action-btn take-btn" data-id="${medicine.id}" title="Mark as taken">✓</button>
-          <button class="action-btn skip-btn" data-id="${medicine.id}" title="Skip today">⊘</button>
+          <button class="action-btn take-btn" data-id="${medicine.id}" title="Mark as taken" aria-label="Mark as taken">✓</button>
+          <button class="action-btn skip-btn" data-id="${medicine.id}" title="Skip today" aria-label="Skip today">⊘</button>
         ` : `
-          <button class="action-btn undo-btn" data-id="${medicine.id}" title="Undo">↩</button>
+          <button class="action-btn undo-btn" data-id="${medicine.id}" title="Undo" aria-label="Undo">↩</button>
         `}
-        <button class="delete-btn" data-id="${medicine.id}">🗑</button>
+        <button class="delete-btn" data-id="${medicine.id}" title="Delete medicine" aria-label="Delete medicine">🗑️</button>
       </div>
     </div>
   `).join('');
+
+  const appointmentListHTML = upcomingAppts.map(appt => {
+    const display = formatAppointmentDisplay(appt);
+    return `
+      <div class="appointment-item">
+        <div class="appt-info">
+          <div class="appt-title-row">
+            <strong>${escapeHtml(appt.title)}</strong>
+            <span class="appt-doctor">with ${escapeHtml(appt.doctor)}</span>
+          </div>
+          <div class="appt-meta">📅 ${display.dateDisplay} at ${display.timeDisplay} ${appt.location ? `· 📍 ${escapeHtml(appt.location)}` : ''}</div>
+        </div>
+        <div class="appt-actions">
+          <span class="countdown-badge">${display.countdown}</span>
+          <button class="delete-appt-btn" data-id="${appt.id}" title="Delete appointment" aria-label="Delete appointment">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
 
   const moodEmojis = [
     { val: 1, icon: '😫', label: 'Terrible' },
@@ -139,7 +150,7 @@ function renderApp() {
     { val: 5, icon: '😄', label: 'Great' }
   ];
 
-  const symptomsList = ['Headache', 'Fatigue', 'Nausea', 'Pain', 'Anxiety', 'Dizziness'];
+  const symptomsList = ['Headache', 'Fatigue', 'Nausea', 'Pain', 'Anxiety', 'Dizziness', 'Stress', 'Insomnia'];
   const todayMood = getTodayMood();
   const notesValue = todayMood ? todayMood.notes : '';
 
@@ -151,15 +162,15 @@ function renderApp() {
           <div>
             <p class="eyebrow">PERSONAL HEALTH DASHBOARD</p>
             <h1>MediTrack</h1>
-            <p class="subtitle">Your complete health companion</p>
+            <p class="subtitle">Your complete, private health companion</p>
           </div>
         </div>
         <div class="header-actions">
           <button class="icon-btn" id="toggle-theme-btn" title="Toggle Dark Mode">
             ${appState.isDarkMode ? '☀️' : '🌙'}
           </button>
-          <button class="icon-btn" id="export-data-btn" title="Export Data">💾</button>
-          <label class="icon-btn" for="import-file" title="Import Data">📁</label>
+          <button class="icon-btn" id="export-data-btn" title="Export Backup (JSON)">💾</button>
+          <label class="icon-btn" for="import-file" title="Import Backup (JSON)">📁</label>
           <input type="file" id="import-file" accept=".json" style="display:none" />
         </div>
       </header>
@@ -174,14 +185,17 @@ function renderApp() {
         <div>
           <p class="eyebrow">GOOD TO SEE YOU</p>
           <h2>Take the day one small step at a time.</h2>
-          <p>${nextMedicine ? `Next up: <strong>${nextMedicine.medicine.name}</strong> at ${formatTime(nextMedicine.medicine.time)}.` : 'Your schedule is clear. Add a medicine when you are ready.'}${nextAppt ? `<br><strong>📅 ${nextAppt.title}</strong> with ${nextAppt.doctor} on ${new Date(nextAppt.date + 'T' + nextAppt.time).toLocaleDateString()}` : ''}</p>
+          <p>${nextMedicine ? `Next up: <strong>${escapeHtml(nextMedicine.medicine.name)}</strong> at ${formatTime(nextMedicine.medicine.time)}.` : 'Your medication schedule is clear for today.'}${nextAppt ? `<br>📅 <strong>${escapeHtml(nextAppt.title)}</strong> with ${escapeHtml(nextAppt.doctor)} (${formatAppointmentDisplay(nextAppt).countdown})` : ''}</p>
         </div>
         <div class="welcome-orbit" aria-hidden="true"><span>✦</span></div>
       </section>
 
       <!-- Statistics Card -->
       <section class="card stats-card">
-        <div class="section-heading light-heading"><div><p class="eyebrow">AT A GLANCE</p><h2>Today's overview</h2></div><span class="section-kicker">LIVE</span></div>
+        <div class="section-heading light-heading">
+          <div><p class="eyebrow">AT A GLANCE</p><h2>Today's overview</h2></div>
+          <span class="section-kicker">LIVE</span>
+        </div>
         <div class="stats-grid">
           <div class="stat-item">
             <div class="stat-value">${adherenceRate}%</div>
@@ -192,7 +206,7 @@ function renderApp() {
             <div class="stat-label">Water Intake</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">${sleepAvg.avgDuration ? sleepAvg.avgDuration + 'h' : '--'}</div>
+            <div class="stat-value">${sleepAvg.avgDuration !== null ? sleepAvg.avgDuration + 'h' : '--'}</div>
             <div class="stat-label">Avg Sleep</div>
           </div>
           <div class="stat-item">
@@ -204,18 +218,23 @@ function renderApp() {
 
       <!-- Quick Actions -->
       <section class="card quick-actions">
-        <div class="section-heading"><div><p class="eyebrow">QUICK LOG</p><h2>Record vitals & sleep</h2></div></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">QUICK LOG</p><h2>Record vitals, sleep & visits</h2></div>
+        </div>
         <div class="quick-grid">
-          <button class="quick-btn" id="show-vitals-btn">❤️ Vitals</button>
-          <button class="quick-btn" id="show-sleep-btn">😴 Sleep Log</button>
-          <button class="quick-btn" id="show-appointment-btn">📅 Appointment</button>
+          <button class="quick-btn" id="show-vitals-btn">❤️ Log Vitals</button>
+          <button class="quick-btn" id="show-sleep-btn">😴 Log Sleep</button>
+          <button class="quick-btn" id="show-appointment-btn">📅 Add Appointment</button>
         </div>
       </section>
 
       <!-- Water Tracker -->
       <section class="card water-card">
-        <div class="section-heading light-heading"><div><p class="eyebrow">BODY RHYTHM</p><h2>Hydration</h2></div><span class="water-icon">◌</span></div>
-        <p class="card-intro">Small sips add up. You are ${waterAmount >= hydrationGoal ? 'at your daily goal' : `${hydrationGoal - waterAmount}ml from your goal`}.</p>
+        <div class="section-heading light-heading">
+          <div><p class="eyebrow">BODY RHYTHM</p><h2>Hydration</h2></div>
+          <span class="water-icon">◌</span>
+        </div>
+        <p class="card-intro">Small sips add up. You are ${waterAmount >= hydrationGoal ? 'at your daily goal! 🎉' : `${hydrationGoal - waterAmount}ml from your goal`}.</p>
         <div class="water-progress">
           <div class="progress-bar" style="width: ${waterProgress}%"></div>
         </div>
@@ -223,13 +242,19 @@ function renderApp() {
           <span>${waterAmount}ml / ${hydrationGoal}ml</span>
           <span>${Math.round(waterProgress)}%</span>
         </div>
-        <div class="water-actions"><button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">−</button><button class="btn-water" id="add-water-btn">Add 250ml <span>+</span></button></div>
+        <div class="water-actions">
+          <button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">−</button>
+          <button class="btn-water" id="add-water-btn">Add 250ml <span>+</span></button>
+        </div>
       </section>
 
       <!-- Mood & Symptom Journal -->
       <section class="card mood-card">
-        <div class="section-heading"><div><p class="eyebrow">MENTAL CHECK-IN</p><h2>How are you feeling?</h2></div><span class="section-icon">☼</span></div>
-        <p class="mood-prompt">How are you feeling today?</p>
+        <div class="section-heading">
+          <div><p class="eyebrow">MENTAL CHECK-IN</p><h2>How are you feeling?</h2></div>
+          <span class="section-icon">☼</span>
+        </div>
+        <p class="mood-prompt">Rate your mood today:</p>
         <div class="emoji-grid">
           ${moodEmojis.map(e => `
             <button class="emoji-btn ${appState.currentMood === e.val ? 'selected' : ''}" data-mood="${e.val}">
@@ -248,17 +273,20 @@ function renderApp() {
           `).join('')}
         </div>
 
-        <textarea id="mood-notes" placeholder="Add notes (optional)..." rows="3">${notesValue}</textarea>
+        <textarea id="mood-notes" placeholder="Add journal notes or how you're feeling..." rows="3">${escapeHtml(notesValue)}</textarea>
         <button class="btn-primary" id="save-mood-btn">Save today's check-in <span>→</span></button>
       </section>
 
       <!-- Latest Vitals Display -->
       ${latestVitals ? `
       <section class="card vitals-display">
-        <div class="section-heading"><div><p class="eyebrow">LATEST VITALS</p><h2>Your recent readings</h2></div></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">LATEST VITALS</p><h2>Recent readings</h2></div>
+          <span class="section-icon">❤️</span>
+        </div>
         <div class="vitals-grid">
           ${latestVitals.heartRate ? `<div class="vital-item"><span class="vital-label">Heart Rate</span><span class="vital-value">${latestVitals.heartRate} bpm</span></div>` : ''}
-          ${latestVitals.bloodPressure ? `<div class="vital-item"><span class="vital-label">Blood Pressure</span><span class="vital-value">${latestVitals.bloodPressure.systolic}/${latestVitals.bloodPressure.diastolic}</span></div>` : ''}
+          ${latestVitals.bloodPressure ? `<div class="vital-item"><span class="vital-label">Blood Pressure</span><span class="vital-value">${latestVitals.bloodPressure.systolic}/${latestVitals.bloodPressure.diastolic} mmHg</span></div>` : ''}
           ${latestVitals.weight ? `<div class="vital-item"><span class="vital-label">Weight</span><span class="vital-value">${latestVitals.weight} kg</span></div>` : ''}
           ${latestVitals.temperature ? `<div class="vital-item"><span class="vital-label">Temperature</span><span class="vital-value">${latestVitals.temperature}°C</span></div>` : ''}
         </div>
@@ -268,10 +296,13 @@ function renderApp() {
       <!-- Latest Sleep Display -->
       ${latestSleep ? `
       <section class="card sleep-display">
-        <div class="section-heading"><div><p class="eyebrow">LAST NIGHT'S SLEEP</p><h2>Sleep summary</h2></div></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">LAST NIGHT'S SLEEP</p><h2>Sleep summary</h2></div>
+          <span class="section-icon">🌙</span>
+        </div>
         <div class="sleep-summary">
           <div class="sleep-stat"><span class="sleep-value">${latestSleep.duration}h</span><span class="sleep-label">Duration</span></div>
-          <div class="sleep-stat"><span class="sleep-value">${'😴'.repeat(latestSleep.quality)}${'🌑'.repeat(5 - latestSleep.quality)}</span><span class="sleep-label">Quality</span></div>
+          <div class="sleep-stat"><span class="sleep-value">${'⭐'.repeat(latestSleep.quality)}${'☆'.repeat(5 - latestSleep.quality)}</span><span class="sleep-label">Quality</span></div>
           <div class="sleep-stat"><span class="sleep-value">${formatTime(latestSleep.bedtime)} - ${formatTime(latestSleep.wakeTime)}</span><span class="sleep-label">Schedule</span></div>
         </div>
       </section>
@@ -280,38 +311,60 @@ function renderApp() {
       <section class="insight-row">
         <div class="card insight-card">
           <p class="eyebrow">RECENT NOTE</p>
-          <h3>${latestMood ? `${latestMood.notes || 'You checked in today.'}` : 'Your journal is ready when you are.'}</h3>
-          <p class="muted-copy">${latestMood ? `${latestMood.symptoms.length ? latestMood.symptoms.join(' · ') : 'No symptoms logged'} · Mood ${latestMood.mood}/5` : 'A short check-in can help you spot patterns over time.'}</p>
+          <h3>${latestMood ? `${escapeHtml(latestMood.notes) || 'Checked in today.'}` : 'Your journal is ready when you are.'}</h3>
+          <p class="muted-copy">${latestMood ? `${latestMood.symptoms.length ? latestMood.symptoms.map(escapeHtml).join(' · ') : 'No symptoms logged'} · Mood ${latestMood.mood}/5` : 'A short check-in helps spot patterns over time.'}</p>
         </div>
         <div class="card insight-card accent-insight">
           <p class="eyebrow">TODAY'S FOCUS</p>
-          <h3>${medProgress.total === 0 ? 'Build your routine' : adherenceRate === 100 ? 'Routine complete' : `${medProgress.total - medProgress.taken} medicine${medProgress.total - medProgress.taken === 1 ? '' : 's'} left`}</h3>
-          <p class="muted-copy">${streakDays > 1 ? `${streakDays} days of consistent check-ins.` : 'Consistency starts with one action.'}</p>
+          <h3>${medProgress.total === 0 ? 'Build your routine' : adherenceRate === 100 ? 'All medicines taken! ✨' : `${medProgress.total - medProgress.taken} medicine${medProgress.total - medProgress.taken === 1 ? '' : 's'} remaining`}</h3>
+          <p class="muted-copy">${streakDays > 1 ? `${streakDays} days of consistent check-ins.` : 'Consistency starts with one step.'}</p>
         </div>
       </section>
 
       <!-- Medicine Section -->
       <section class="card add-med-card">
-        <div class="section-heading"><div><p class="eyebrow">YOUR ROUTINE</p><h2>Add a medicine</h2></div><span class="section-icon">＋</span></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">YOUR ROUTINE</p><h2>Add a medicine</h2></div>
+          <span class="section-icon">＋</span>
+        </div>
         <form id="add-med-form">
-          <input type="text" id="med-name" placeholder="Medicine Name (e.g., Ibuprofen)" required />
-          <input type="text" id="med-dosage" placeholder="Dosage (e.g., 200mg)" required />
-          <input type="time" id="med-time" required />
-          <select id="med-frequency">
-            <option value="daily">Daily</option>
-            <option value="weekdays">Weekdays only</option>
-            <option value="weekends">Weekends only</option>
-            <option value="custom">Custom days</option>
-          </select>
-          <input type="number" id="med-inventory" placeholder="Pill count" min="0" value="30" />
+          <input type="text" id="med-name" placeholder="Medicine Name (e.g., Metformin)" required />
+          <input type="text" id="med-dosage" placeholder="Dosage (e.g., 500mg)" required />
+          <label class="form-label">Dose Time: <input type="time" id="med-time" required value="09:00" /></label>
+          <div class="form-row">
+            <label class="form-label">Frequency:
+              <select id="med-frequency">
+                <option value="daily">Daily</option>
+                <option value="weekdays">Weekdays only</option>
+                <option value="weekends">Weekends only</option>
+              </select>
+            </label>
+            <label class="form-label">Pill Inventory:
+              <input type="number" id="med-inventory" placeholder="Pills left" min="0" value="30" />
+            </label>
+          </div>
           <button type="submit" class="btn-primary">Add Medicine</button>
         </form>
       </section>
 
       <section class="card list-card">
-        <div class="section-heading"><div><p class="eyebrow">SCHEDULE</p><h2>Today's medicines</h2></div><span class="progress-pill">${medProgress.taken} / ${medProgress.total} done</span></div>
+        <div class="section-heading">
+          <div><p class="eyebrow">SCHEDULE</p><h2>Today's medicines</h2></div>
+          <span class="progress-pill">${medProgress.taken} / ${medProgress.total} taken</span>
+        </div>
         <div id="medicine-list">
-          ${todaysMedList.length === 0 ? '<p class="empty-state">No medicines scheduled for today.</p>' : medicineListHTML}
+          ${todaysMedList.length === 0 ? '<p class="empty-state">No medicines scheduled for today. Add one above!</p>' : medicineListHTML}
+        </div>
+      </section>
+
+      <!-- Appointments List Section -->
+      <section class="card appointments-card">
+        <div class="section-heading">
+          <div><p class="eyebrow">CONSULTATIONS</p><h2>Upcoming Appointments</h2></div>
+          <span class="progress-pill">${upcomingAppts.length} scheduled</span>
+        </div>
+        <div id="appointments-list">
+          ${upcomingAppts.length === 0 ? '<p class="empty-state">No upcoming appointments. Click "Add Appointment" above to schedule one.</p>' : appointmentListHTML}
         </div>
       </section>
     </div>
@@ -319,12 +372,12 @@ function renderApp() {
     <!-- Vitals Modal -->
     <dialog id="vitals-modal" class="modal">
       <div class="modal-content">
-        <h3>Record Vitals</h3>
+        <h3>Record Vital Signs</h3>
         <form id="vitals-form">
-          <label>Heart Rate (bpm)<input type="number" id="vitals-hr" placeholder="e.g., 72" /></label>
-          <label>Blood Pressure<input type="text" id="vitals-bp" placeholder="120/80" /></label>
-          <label>Weight (kg)<input type="number" id="vitals-weight" step="0.1" placeholder="e.g., 70.5" /></label>
-          <label>Temperature (°C)<input type="number" id="vitals-temp" step="0.1" placeholder="e.g., 36.6" /></label>
+          <label>Heart Rate (bpm)<input type="number" id="vitals-hr" placeholder="e.g., 72" min="30" max="250" /></label>
+          <label>Blood Pressure (Systolic/Diastolic)<input type="text" id="vitals-bp" placeholder="e.g., 120/80" pattern="\\d{2,3}/\\d{2,3}" title="Format: 120/80" /></label>
+          <label>Weight (kg)<input type="number" id="vitals-weight" step="0.1" placeholder="e.g., 70.5" min="1" max="500" /></label>
+          <label>Temperature (°C)<input type="number" id="vitals-temp" step="0.1" placeholder="e.g., 36.6" min="30" max="45" /></label>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" id="close-vitals-btn">Cancel</button>
             <button type="submit" class="btn-primary">Save Vitals</button>
@@ -338,9 +391,11 @@ function renderApp() {
       <div class="modal-content">
         <h3>Log Sleep</h3>
         <form id="sleep-form">
-          <label>Bedtime<input type="time" id="sleep-bedtime" value="23:00" /></label>
-          <label>Wake Time<input type="time" id="sleep-waketime" value="07:00" /></label>
-          <label>Sleep Quality (1-5)<input type="range" id="sleep-quality" min="1" max="5" value="3" /><span id="quality-display">3</span></label>
+          <label>Bedtime<input type="time" id="sleep-bedtime" value="23:00" required /></label>
+          <label>Wake Time<input type="time" id="sleep-waketime" value="07:00" required /></label>
+          <label>Sleep Quality (1-5): <span id="quality-display">3</span> Stars
+            <input type="range" id="sleep-quality" min="1" max="5" value="3" />
+          </label>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" id="close-sleep-btn">Cancel</button>
             <button type="submit" class="btn-primary">Save Sleep</button>
@@ -354,11 +409,11 @@ function renderApp() {
       <div class="modal-content">
         <h3>Add Appointment</h3>
         <form id="appointment-form">
-          <label>Title<input type="text" id="appt-title" placeholder="e.g., Check-up" required /></label>
-          <label>Doctor<input type="text" id="appt-doctor" placeholder="Dr. Name" required /></label>
-          <label>Date<input type="date" id="appt-date" required /></label>
-          <label>Time<input type="time" id="appt-time" required /></label>
-          <label>Location<input type="text" id="appt-location" placeholder="Clinic/Hospital" /></label>
+          <label>Title<input type="text" id="appt-title" placeholder="e.g., Annual Check-up" required /></label>
+          <label>Doctor / Specialist<input type="text" id="appt-doctor" placeholder="e.g., Dr. Smith" required /></label>
+          <label>Date<input type="date" id="appt-date" value="${getTodayDateString()}" required /></label>
+          <label>Time<input type="time" id="appt-time" value="10:00" required /></label>
+          <label>Location / Clinic<input type="text" id="appt-location" placeholder="e.g., General Hospital, Rm 302" /></label>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" id="close-appt-btn">Cancel</button>
             <button type="submit" class="btn-primary">Add Appointment</button>
@@ -375,7 +430,7 @@ function attachEventListeners() {
   // Theme Toggle
   document.getElementById('toggle-theme-btn')?.addEventListener('click', () => {
     appState.isDarkMode = !appState.isDarkMode;
-    document.documentElement.classList.toggle('dark-mode');
+    document.documentElement.classList.toggle('dark-mode', appState.isDarkMode);
     saveAppState();
     renderApp();
   });
@@ -390,11 +445,11 @@ function attachEventListeners() {
   const form = document.getElementById('add-med-form') as HTMLFormElement;
   form?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const frequency = (document.getElementById('med-frequency') as HTMLSelectElement).value as 'daily' | 'weekdays' | 'weekends' | 'custom';
+    const frequency = (document.getElementById('med-frequency') as HTMLSelectElement).value as 'daily' | 'weekdays' | 'weekends';
     addMedicine({
       id: Date.now().toString(),
-      name: (document.getElementById('med-name') as HTMLInputElement).value,
-      dosage: (document.getElementById('med-dosage') as HTMLInputElement).value,
+      name: (document.getElementById('med-name') as HTMLInputElement).value.trim(),
+      dosage: (document.getElementById('med-dosage') as HTMLInputElement).value.trim(),
       time: (document.getElementById('med-time') as HTMLInputElement).value,
       taken: false,
       frequency: frequency,
@@ -433,14 +488,25 @@ function attachEventListeners() {
   document.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
-      if (confirm('Delete this medicine?')) {
+      if (confirm('Delete this medicine from your schedule?')) {
         deleteMedicine(id);
         renderApp();
       }
     });
   });
 
-  // Water Button
+  // Appointment Delete
+  document.querySelectorAll('.delete-appt-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
+      if (confirm('Delete this appointment?')) {
+        deleteAppointment(id);
+        renderApp();
+      }
+    });
+  });
+
+  // Water Buttons
   document.getElementById('add-water-btn')?.addEventListener('click', () => {
     addWater(250);
     renderApp();
@@ -454,17 +520,16 @@ function attachEventListeners() {
     }
   });
 
-  // Mood Selection - FIXED: Update state before re-render
+  // Mood Selection
   document.querySelectorAll('.emoji-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const moodValue = parseInt((e.currentTarget as HTMLButtonElement).dataset.mood!);
-      appState.currentMood = moodValue; // Update state FIRST
-      // Don't re-render here - wait for save or let user continue
+      appState.currentMood = moodValue;
       updateEmojiUI();
     });
   });
 
-  // Symptom Selection - FIXED: Update state before re-render
+  // Symptom Selection
   document.querySelectorAll('.symptom-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const symptom = (e.currentTarget as HTMLButtonElement).dataset.symptom!;
@@ -483,8 +548,8 @@ function attachEventListeners() {
       alert("Please select how you're feeling first!");
       return;
     }
-    const notes = (document.getElementById('mood-notes') as HTMLTextAreaElement).value;
-    const today = new Date().toISOString().split('T')[0];
+    const notes = (document.getElementById('mood-notes') as HTMLTextAreaElement).value.trim();
+    const today = getTodayDateString();
     
     saveMoodEntry({
       id: Date.now().toString(),
@@ -499,12 +564,23 @@ function attachEventListeners() {
     renderApp();
   });
 
-  // Modal Controls - Vitals
+  // Modal Controls
   const vitalsModal = document.getElementById('vitals-modal') as HTMLDialogElement;
   const sleepModal = document.getElementById('sleep-modal') as HTMLDialogElement;
   const apptModal = document.getElementById('appointment-modal') as HTMLDialogElement;
 
+  // Backdrop click to close modals
+  [vitalsModal, sleepModal, apptModal].forEach(modal => {
+    modal?.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.close();
+      }
+    });
+  });
+
+  // Vitals Modal
   document.getElementById('show-vitals-btn')?.addEventListener('click', () => {
+    (document.getElementById('vitals-form') as HTMLFormElement)?.reset();
     vitalsModal?.showModal();
   });
 
@@ -515,14 +591,16 @@ function attachEventListeners() {
   document.getElementById('vitals-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const hr = (document.getElementById('vitals-hr') as HTMLInputElement).value;
-    const bp = (document.getElementById('vitals-bp') as HTMLInputElement).value;
+    const bp = (document.getElementById('vitals-bp') as HTMLInputElement).value.trim();
     const weight = (document.getElementById('vitals-weight') as HTMLInputElement).value;
     const temp = (document.getElementById('vitals-temp') as HTMLInputElement).value;
     
     let bloodPressure = undefined;
     if (bp && bp.includes('/')) {
       const [systolic, diastolic] = bp.split('/').map(Number);
-      bloodPressure = { systolic, diastolic };
+      if (!isNaN(systolic) && !isNaN(diastolic)) {
+        bloodPressure = { systolic, diastolic };
+      }
     }
     
     addVitalsLog({
@@ -536,7 +614,7 @@ function attachEventListeners() {
     renderApp();
   });
 
-  // Modal Controls - Sleep
+  // Sleep Modal
   document.getElementById('show-sleep-btn')?.addEventListener('click', () => {
     sleepModal?.showModal();
   });
@@ -547,7 +625,8 @@ function attachEventListeners() {
 
   document.getElementById('sleep-quality')?.addEventListener('input', (e) => {
     const val = (e.target as HTMLInputElement).value;
-    document.getElementById('quality-display')!.textContent = val;
+    const display = document.getElementById('quality-display');
+    if (display) display.textContent = val;
   });
 
   document.getElementById('sleep-form')?.addEventListener('submit', (e) => {
@@ -555,12 +634,6 @@ function attachEventListeners() {
     const bedtime = (document.getElementById('sleep-bedtime') as HTMLInputElement).value;
     const wakeTime = (document.getElementById('sleep-waketime') as HTMLInputElement).value;
     const quality = parseInt((document.getElementById('sleep-quality') as HTMLInputElement).value);
-    
-    // Calculate duration
-    const bed = new Date(`2000-01-01T${bedtime}`);
-    const wake = new Date(`2000-01-01T${wakeTime}`);
-    let duration = (wake.getTime() - bed.getTime()) / (1000 * 60 * 60);
-    if (duration < 0) duration += 24; // Handle overnight sleep
     
     addSleepLog({
       bedtime,
@@ -572,8 +645,10 @@ function attachEventListeners() {
     renderApp();
   });
 
-  // Modal Controls - Appointments
+  // Appointment Modal
   document.getElementById('show-appointment-btn')?.addEventListener('click', () => {
+    (document.getElementById('appointment-form') as HTMLFormElement)?.reset();
+    (document.getElementById('appt-date') as HTMLInputElement).value = getTodayDateString();
     apptModal?.showModal();
   });
 
@@ -583,11 +658,11 @@ function attachEventListeners() {
 
   document.getElementById('appointment-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const title = (document.getElementById('appt-title') as HTMLInputElement).value;
-    const doctor = (document.getElementById('appt-doctor') as HTMLInputElement).value;
+    const title = (document.getElementById('appt-title') as HTMLInputElement).value.trim();
+    const doctor = (document.getElementById('appt-doctor') as HTMLInputElement).value.trim();
     const date = (document.getElementById('appt-date') as HTMLInputElement).value;
     const time = (document.getElementById('appt-time') as HTMLInputElement).value;
-    const location = (document.getElementById('appt-location') as HTMLInputElement).value;
+    const location = (document.getElementById('appt-location') as HTMLInputElement).value.trim();
     
     addAppointment({
       title,
@@ -603,7 +678,7 @@ function attachEventListeners() {
   });
 }
 
-// Helper: Update UI without full re-render (for better UX)
+// Helpers: Update UI without full re-render
 function updateEmojiUI() {
   document.querySelectorAll('.emoji-btn').forEach(btn => {
     const moodVal = parseInt(btn.getAttribute('data-mood')!);
@@ -622,37 +697,45 @@ function updateSymptomUI() {
 function calculateStreak(entries: MoodEntry[]): number {
   if (entries.length === 0) return 0;
   
-  let streak = 0;
-  const today = new Date();
+  const dateSet = new Set(entries.map(e => e.date));
+  const sortedDates = Array.from(dateSet).sort().reverse();
   
-  for (let i = 0; i < entries.length; i++) {
-    const entryDate = new Date(entries[i].date);
-    const diffDays = Math.floor((today.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === i) {
+  const today = getTodayDateString();
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = yesterdayDate.toISOString().split('T')[0];
+
+  let currentCheckingDate: Date;
+  if (sortedDates.includes(today)) {
+    currentCheckingDate = new Date();
+  } else if (sortedDates.includes(yesterday)) {
+    currentCheckingDate = yesterdayDate;
+  } else {
+    return 0;
+  }
+
+  let streak = 0;
+  while (true) {
+    const dateStr = currentCheckingDate.toISOString().split('T')[0];
+    if (dateSet.has(dateStr)) {
       streak++;
+      currentCheckingDate.setDate(currentCheckingDate.getDate() - 1);
     } else {
       break;
     }
   }
-  
+
   return streak;
 }
 
 // Export Data Function
 function exportData() {
-  const data = {
-    medicines: getMedicines(),
-    moodEntries: getMoodEntries(),
-    water: localStorage.getItem('meditrack_water'),
-    exportDate: new Date().toISOString()
-  };
-  
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const jsonStr = exportAllData();
+  const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `meditrack-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `meditrack-backup-${getTodayDateString()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -664,22 +747,11 @@ function importData(event: Event) {
   
   const reader = new FileReader();
   reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target?.result as string);
-      
-      if (data.medicines) {
-        localStorage.setItem('meditrack_medicines', JSON.stringify(data.medicines));
-      }
-      if (data.moodEntries) {
-        localStorage.setItem('meditrack_mood', JSON.stringify(data.moodEntries));
-      }
-      if (data.water) {
-        localStorage.setItem('meditrack_water', data.water);
-      }
-      
+    const content = e.target?.result as string;
+    if (importAllData(content)) {
       alert('Data imported successfully! 🎉');
       renderApp();
-    } catch (err) {
+    } else {
       alert('Error importing data. Please check the file format.');
     }
   };

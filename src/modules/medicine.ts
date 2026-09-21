@@ -63,6 +63,8 @@ export function markMedicineTaken(medicineId: string): void {
     (log) => log.medicineId === medicineId && log.date === today
   );
 
+  const wasTaken = log ? log.taken : false;
+
   if (log) {
     log.taken = true;
     log.takenAt = new Date().toISOString();
@@ -77,10 +79,12 @@ export function markMedicineTaken(medicineId: string): void {
     appData.medicineLogs.push(log);
   }
 
-  // Decrease inventory
-  const medicine = appData.medicines.find((m) => m.id === medicineId);
-  if (medicine) {
-    medicine.inventory = Math.max(0, medicine.inventory - 1);
+  // Decrease inventory only if transitioning from untaken to taken
+  if (!wasTaken) {
+    const medicine = appData.medicines.find((m) => m.id === medicineId);
+    if (medicine && medicine.inventory > 0) {
+      medicine.inventory = Math.max(0, medicine.inventory - 1);
+    }
   }
 
   saveAppData(appData);
@@ -92,6 +96,8 @@ export function markMedicineSkipped(medicineId: string): void {
   let log = appData.medicineLogs.find(
     (log) => log.medicineId === medicineId && log.date === today
   );
+
+  const wasTaken = log ? log.taken : false;
 
   if (log) {
     log.skipped = true;
@@ -106,6 +112,14 @@ export function markMedicineSkipped(medicineId: string): void {
     appData.medicineLogs.push(log);
   }
 
+  // Restore inventory if it was marked taken earlier
+  if (wasTaken) {
+    const medicine = appData.medicines.find((m) => m.id === medicineId);
+    if (medicine) {
+      medicine.inventory += 1;
+    }
+  }
+
   saveAppData(appData);
 }
 
@@ -117,7 +131,17 @@ export function unmarkMedicine(medicineId: string): void {
   );
 
   if (logIndex !== -1) {
+    const wasTaken = appData.medicineLogs[logIndex].taken;
     appData.medicineLogs.splice(logIndex, 1);
+    
+    // Restore inventory if it was marked taken
+    if (wasTaken) {
+      const medicine = appData.medicines.find((m) => m.id === medicineId);
+      if (medicine) {
+        medicine.inventory += 1;
+      }
+    }
+    
     saveAppData(appData);
   }
 }
