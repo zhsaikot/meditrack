@@ -551,6 +551,11 @@ function renderApp() {
           ${upcomingAppts.length === 0 ? '<p class="empty-state">No upcoming appointments. Click "Add Visit" above to schedule one.</p>' : appointmentListHTML}
         </div>
       </section>
+
+      <!-- App Footer -->
+      <footer class="app-footer">
+        <p class="copyright-text">Created by <a href="https://www.instagram.com/zhsaikot" target="_blank" rel="noopener noreferrer" class="creator-link">MD. Ziaul Hasan</a></p>
+      </footer>
     </div>
     
     <!-- Vitals Modal -->
