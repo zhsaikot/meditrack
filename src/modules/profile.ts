@@ -139,3 +139,4 @@ export function renderBMISpectrumSVG(bmi: number): string {
     </div>
   `;
 }
+
