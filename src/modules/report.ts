@@ -6,13 +6,19 @@ import { getMoodAverage, getMostCommonSymptoms } from './journal';
 import { getSleepAverage } from './sleep';
 import { getVitalsAverages, getLatestVitals } from './vitals';
 import { getTodaysProgress } from './medicine';
+import { calculateBMI } from './profile';
 
 export function generateDoctorReportHTML(data: AppData): string {
   const printDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 
+  const patientName = data.profile?.name?.trim() || 'Confidential Patient';
   const latestVitals = getLatestVitals();
+  const patientWeight = latestVitals?.weight || data.profile?.weightKg || 70;
+  const patientHeight = data.profile?.heightCm || 170;
+  const bmiResult = calculateBMI(patientWeight, patientHeight);
+
   const vitalsAvg = getVitalsAverages(30);
   const sleepAvg = getSleepAverage(30);
   const moodAvg = getMoodAverage(30);
@@ -42,13 +48,40 @@ export function generateDoctorReportHTML(data: AppData): string {
       <div class="report-header">
         <div class="report-title-block">
           <h1>MediTrack Patient Health Summary</h1>
-          <p class="report-meta">Generated on: <strong>${printDate}</strong></p>
+          <p class="report-meta">Patient: <strong>${escapeHtml(patientName)}</strong> · Generated on: <strong>${printDate}</strong></p>
         </div>
         <div class="report-watermark">CONFIDENTIAL MEDICAL SUMMARY</div>
       </div>
 
       <div class="report-section">
-        <h2>1. Medication Schedule & Adherence</h2>
+        <h2>1. Patient Demographics & Baseline Metrics</h2>
+        <div class="report-grid-4">
+          <div class="report-stat-box">
+            <span class="box-label">Patient Name</span>
+            <span class="box-value">${escapeHtml(patientName)}</span>
+          </div>
+          <div class="report-stat-box">
+            <span class="box-label">Blood Type</span>
+            <span class="box-value">${escapeHtml(data.profile?.bloodType || 'O+')}</span>
+          </div>
+          <div class="report-stat-box">
+            <span class="box-label">Height & Weight</span>
+            <span class="box-value">${patientHeight} cm / ${patientWeight} kg</span>
+          </div>
+          <div class="report-stat-box">
+            <span class="box-label">BMI & Classification</span>
+            <span class="box-value">${bmiResult.bmi} (${bmiResult.category})</span>
+          </div>
+        </div>
+        ${data.profile?.emergencyContact?.name ? `
+          <div style="margin-top: 10px; font-size: 0.85rem; color: #475569; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <strong>Emergency Contact:</strong> ${escapeHtml(data.profile.emergencyContact.name)} (${escapeHtml(data.profile.emergencyContact.relationship || 'Primary')}) · 📞 ${escapeHtml(data.profile.emergencyContact.phone)}
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="report-section">
+        <h2>2. Medication Schedule & Adherence</h2>
         <div class="report-grid-2">
           <div class="report-stat-box">
             <span class="box-label">Adherence Rate (Last 30 Days)</span>
@@ -77,7 +110,7 @@ export function generateDoctorReportHTML(data: AppData): string {
       </div>
 
       <div class="report-section">
-        <h2>2. Vital Signs & Clinical Readings</h2>
+        <h2>3. Vital Signs & Clinical Readings</h2>
         <div class="report-grid-4">
           <div class="report-stat-box">
             <span class="box-label">Latest Blood Pressure</span>
@@ -102,7 +135,7 @@ export function generateDoctorReportHTML(data: AppData): string {
       </div>
 
       <div class="report-section">
-        <h2>3. Symptoms & Mental Well-Being</h2>
+        <h2>4. Symptoms & Mental Well-Being</h2>
         <div class="report-grid-2">
           <div class="report-stat-box">
             <span class="box-label">Average Mood Score</span>

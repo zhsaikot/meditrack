@@ -604,7 +604,8 @@ body {
   .insight-row, 
   .add-med-card, 
   .list-card, 
-  .appointments-card { 
+  .appointments-card,
+  .bmi-card { 
     grid-column: 1 / -1; 
   }
   .main-header { width: auto; }
@@ -950,6 +951,296 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 .notification-bell.active {
   color: #F59E0B;
   border-color: #F59E0B;
+}
+
+/* Profile Avatar & Header */
+.profile-avatar-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(13, 148, 136, 0.2);
+}
+
+.profile-avatar-btn:hover {
+  transform: scale(1.08);
+  border-color: var(--color-primary-hover);
+}
+
+.profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-avatar-fallback {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--color-primary);
+  text-transform: uppercase;
+}
+
+/* Water Goal Setting Action */
+.goal-setting-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.goal-setting-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(13, 148, 136, 0.06);
+}
+
+/* BMI Card & Spectrum Gauge */
+.bmi-card {
+  border-top: 4px solid #10B981;
+}
+
+.bmi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.bmi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bmi-stat-box {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.bmi-stat-label {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.bmi-stat-num {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.bmi-stat-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.bmi-gauge-wrap {
+  margin: 8px 0 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px 14px 12px;
+}
+
+.bmi-gauge-svg {
+  width: 100%;
+  height: 48px;
+  overflow: visible;
+  display: block;
+}
+
+.bmi-spectrum-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bmi-advice-box {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  color: #166534;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.45;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.bmi-edit-link {
+  background: transparent;
+  border: 1.5px solid currentColor;
+  color: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.bmi-edit-link:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark-mode .bmi-advice-box {
+  background: #064E3B;
+  border-color: #047857;
+  color: #D1FAE5;
+}
+
+.dark-mode .bmi-gauge-wrap,
+.dark-mode .bmi-stat-box {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+/* Profile Setup Modal */
+.profile-modal-content {
+  max-width: 540px;
+  width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.profile-avatar-setup {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--bg-primary);
+  border-radius: 14px;
+  border: 1.5px dashed var(--border-color);
+}
+
+.avatar-preview-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid var(--color-primary);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.avatar-preview-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-preview-fallback {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.avatar-upload-btn {
+  background: var(--color-primary);
+  color: #ffffff;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-block;
+  text-align: center;
+  transition: background 0.2s;
+}
+
+.avatar-upload-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.avatar-remove-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.avatar-remove-btn:hover {
+  border-color: #EF4444;
+  color: #EF4444;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.profile-form-full {
+  grid-column: 1 / -1;
+}
+
+.profile-section-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-primary);
+  margin-top: 14px;
+  margin-bottom: 4px;
+  grid-column: 1 / -1;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 4px;
+}
+
+/* Quick Water Goal Modal */
+.goal-modal-content {
+  max-width: 380px;
+  width: 90vw;
 }
 
 /* Print Styles for Doctor Report */

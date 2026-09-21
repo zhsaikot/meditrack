@@ -15,8 +15,12 @@ import {
   saveAppData,
   exportAllData,
   importAllData,
-  getTodayDateString
+  getTodayDateString,
+  getUserProfile,
+  saveUserProfile,
+  setCustomHydrationGoal
 } from './storage'
+import { calculateBMI, renderBMISpectrumSVG } from './modules/profile'
 import { initVitalsModule, addVitalsLog, getLatestVitals, getVitalsAverages } from './modules/vitals'
 import { initSleepModule, addSleepLog, getLatestSleep, getSleepAverage } from './modules/sleep'
 import { initJournalModule, getMoodAverage } from './modules/journal'
@@ -216,6 +220,13 @@ function renderApp() {
   const todayMood = getTodayMood();
   const notesValue = todayMood ? todayMood.notes : '';
 
+  const profile = getUserProfile();
+  const userWeight = latestVitals?.weight || profile.weightKg || 70;
+  const userHeight = profile.heightCm || 170;
+  const bmiResult = calculateBMI(userWeight, userHeight);
+  const firstName = profile.name?.trim() ? profile.name.trim().split(' ')[0] : '';
+  const greetingEyebrow = firstName ? `GOOD TO SEE YOU, ${escapeHtml(firstName.toUpperCase())}` : 'GOOD TO SEE YOU';
+
   app.innerHTML = `
     <div class="container">
       <header class="main-header">
@@ -228,6 +239,13 @@ function renderApp() {
           </div>
         </div>
         <div class="header-actions">
+          <button class="profile-avatar-btn" id="open-profile-btn" title="Open Profile & Settings" aria-label="Open Profile & Settings">
+            ${profile.avatarUrl ? `
+              <img src="${profile.avatarUrl}" alt="${escapeHtml(profile.name || 'User')}" class="profile-avatar-img" />
+            ` : `
+              <span class="profile-avatar-fallback">${firstName ? escapeHtml(firstName[0]) : '👤'}</span>
+            `}
+          </button>
           <button class="icon-btn ${appState.notificationsEnabled ? 'notification-bell active' : 'notification-bell'}" id="toggle-notifications-btn" title="${appState.notificationsEnabled ? 'Reminders Active' : 'Enable Reminders'}">
             ${appState.notificationsEnabled ? '🔔' : '🔕'}
           </button>
@@ -249,8 +267,8 @@ function renderApp() {
 
       <section class="welcome-panel">
         <div>
-          <p class="eyebrow">GOOD TO SEE YOU</p>
-          <h2>Take the day one small step at a time.</h2>
+          <p class="eyebrow">${greetingEyebrow}</p>
+          <h2>${firstName ? `Welcome back, ${escapeHtml(firstName)}.` : 'Take the day one small step at a time.'}</h2>
           <p>${nextMedicine ? `Next up: <strong>${escapeHtml(nextMedicine.medicine.name)}</strong> at ${formatTime(nextMedicine.medicine.time)}.` : 'Your medication schedule is clear for today.'}${nextAppt ? `<br>📅 <strong>${escapeHtml(nextAppt.title)}</strong> with ${escapeHtml(nextAppt.doctor)} (${formatAppointmentDisplay(nextAppt).countdown})` : ''}</p>
         </div>
         <div class="welcome-orbit" aria-hidden="true"><span>✦</span></div>
@@ -313,7 +331,10 @@ function renderApp() {
       <section class="card water-card">
         <div class="section-heading">
           <div><p class="eyebrow">BODY RHYTHM</p><h2>Hydration</h2></div>
-          <span class="water-icon">💧</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="goal-setting-btn" id="edit-water-goal-btn" title="Customize daily water goal">⚙️ ${hydrationGoal}ml Goal</button>
+            <span class="water-icon">💧</span>
+          </div>
         </div>
         <p class="card-intro">Small sips add up. You are ${waterAmount >= hydrationGoal ? 'at your daily goal! 🎉' : `${hydrationGoal - waterAmount}ml from your goal`}.</p>
         <div class="water-progress">
@@ -326,6 +347,39 @@ function renderApp() {
         <div class="water-actions">
           <button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">−</button>
           <button class="btn-water" id="add-water-btn">Add 250ml <span>+</span></button>
+        </div>
+      </section>
+
+      <!-- Body Mass Index (BMI) & Biometrics Card -->
+      <section class="card bmi-card">
+        <div class="section-heading">
+          <div><p class="eyebrow" style="color: ${bmiResult.color}">BODY COMPOSITION</p><h2>Body Mass Index (BMI)</h2></div>
+          <span class="bmi-badge" style="background: ${bmiResult.badgeBg}; color: ${bmiResult.color}">● ${bmiResult.category}</span>
+        </div>
+        
+        <div class="bmi-grid">
+          <div class="bmi-stat-box">
+            <span class="bmi-stat-label">Current BMI</span>
+            <span class="bmi-stat-num" style="color: ${bmiResult.color}">${bmiResult.bmi || '--'}</span>
+            <span class="bmi-stat-sub">Target: 18.5 – 24.9</span>
+          </div>
+          <div class="bmi-stat-box">
+            <span class="bmi-stat-label">Recorded Weight</span>
+            <span class="bmi-stat-num">${userWeight} <span style="font-size:0.9rem; font-weight:600;">kg</span></span>
+            <span class="bmi-stat-sub">Height: ${userHeight} cm</span>
+          </div>
+          <div class="bmi-stat-box">
+            <span class="bmi-stat-label">Healthy Weight Range</span>
+            <span class="bmi-stat-num" style="font-size: 1.25rem;">${bmiResult.minHealthyWeight}–${bmiResult.maxHealthyWeight} <span style="font-size:0.85rem; font-weight:600;">kg</span></span>
+            <span class="bmi-stat-sub">WHO standard scale</span>
+          </div>
+        </div>
+
+        ${renderBMISpectrumSVG(bmiResult.bmi)}
+
+        <div class="bmi-advice-box">
+          <span>💡 ${escapeHtml(bmiResult.advice)}</span>
+          <button class="bmi-edit-link" id="bmi-update-metrics-btn">Edit Profile</button>
         </div>
       </section>
 
@@ -551,6 +605,127 @@ function renderApp() {
         </form>
       </div>
     </dialog>
+
+    <!-- Profile Setup & Settings Modal -->
+    <dialog id="profile-modal" class="modal">
+      <div class="modal-content profile-modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+          <h3 style="margin:0;">Profile & Health Baseline</h3>
+          <button type="button" class="icon-btn" id="close-profile-x" style="border:none; width:30px; height:30px; font-size:1.1rem; cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Avatar Preview & Upload -->
+        <div class="profile-avatar-setup">
+          <div class="avatar-preview-circle" id="profile-avatar-preview">
+            ${profile.avatarUrl ? `<img src="${profile.avatarUrl}" alt="Profile avatar" />` : `<span class="avatar-preview-fallback">👤</span>`}
+          </div>
+          <div class="avatar-actions">
+            <label class="avatar-upload-btn" for="avatar-file-input">
+              📷 Upload Photo
+            </label>
+            <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" />
+            <button type="button" class="avatar-remove-btn" id="remove-avatar-btn" style="${profile.avatarUrl ? '' : 'display:none;'}">Remove photo</button>
+            <span style="font-size:0.75rem; color:var(--text-muted);">Stored privately in your browser</span>
+          </div>
+        </div>
+
+        <form id="profile-form">
+          <div class="profile-form-grid">
+            <div class="profile-form-full">
+              <label class="form-label">Full Name
+                <input type="text" id="profile-name" placeholder="e.g. Alex Morgan" value="${escapeHtml(profile.name || '')}" />
+              </label>
+            </div>
+
+            <div>
+              <label class="form-label">Height (cm)
+                <input type="number" id="profile-height" placeholder="170" min="50" max="260" required value="${profile.heightCm || 170}" />
+              </label>
+            </div>
+
+            <div>
+              <label class="form-label">Current Weight (kg)
+                <input type="number" id="profile-weight" step="0.1" placeholder="70.0" min="20" max="400" required value="${profile.weightKg || 70}" />
+              </label>
+            </div>
+
+            <div>
+              <label class="form-label">Blood Type
+                <select id="profile-blood-type" style="padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; width: 100%; background: var(--bg-card); color: var(--text-main);">
+                  <option value="A+" ${profile.bloodType === 'A+' ? 'selected' : ''}>A+</option>
+                  <option value="A-" ${profile.bloodType === 'A-' ? 'selected' : ''}>A-</option>
+                  <option value="B+" ${profile.bloodType === 'B+' ? 'selected' : ''}>B+</option>
+                  <option value="B-" ${profile.bloodType === 'B-' ? 'selected' : ''}>B-</option>
+                  <option value="AB+" ${profile.bloodType === 'AB+' ? 'selected' : ''}>AB+</option>
+                  <option value="AB-" ${profile.bloodType === 'AB-' ? 'selected' : ''}>AB-</option>
+                  <option value="O+" ${profile.bloodType === 'O+' ? 'selected' : ''}>O+</option>
+                  <option value="O-" ${profile.bloodType === 'O-' ? 'selected' : ''}>O-</option>
+                </select>
+              </label>
+            </div>
+
+            <div>
+              <label class="form-label">Daily Water Goal (ml)
+                <input type="number" id="profile-water-goal" placeholder="2000" min="500" max="8000" step="50" required value="${hydrationGoal}" />
+              </label>
+            </div>
+
+            <span class="profile-section-title">Emergency Contact</span>
+
+            <div class="profile-form-full">
+              <label class="form-label">Contact Name
+                <input type="text" id="profile-emergency-name" placeholder="e.g. Jane Doe" value="${escapeHtml(profile.emergencyContact?.name || '')}" />
+              </label>
+            </div>
+
+            <div>
+              <label class="form-label">Phone Number
+                <input type="tel" id="profile-emergency-phone" placeholder="e.g. +1 555-0199" value="${escapeHtml(profile.emergencyContact?.phone || '')}" />
+              </label>
+            </div>
+
+            <div>
+              <label class="form-label">Relationship
+                <input type="text" id="profile-emergency-rel" placeholder="e.g. Spouse, Parent" value="${escapeHtml(profile.emergencyContact?.relationship || '')}" />
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 18px;">
+            <button type="button" class="btn-secondary" id="close-profile-btn">Cancel</button>
+            <button type="submit" class="btn-primary">Save Profile</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Quick Water Goal Modal -->
+    <dialog id="goal-modal" class="modal">
+      <div class="modal-content goal-modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+          <h3 style="margin:0;">Daily Water Goal</h3>
+          <button type="button" class="icon-btn" id="close-goal-x" style="border:none; width:30px; height:30px; font-size:1.1rem; cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
+          Adjust your target daily hydration. The recommended baseline is 2000ml – 3000ml.
+        </p>
+        <form id="quick-goal-form">
+          <label class="form-label">Daily Target (ml)
+            <input type="number" id="quick-goal-input" min="500" max="8000" step="50" value="${hydrationGoal}" required />
+          </label>
+          <div style="display:flex; gap:8px; margin: 12px 0;">
+            <button type="button" class="goal-preset-btn" data-ml="1500" style="flex:1; padding:7px 4px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--text-main);">1500ml</button>
+            <button type="button" class="goal-preset-btn" data-ml="2000" style="flex:1; padding:7px 4px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--text-main);">2000ml</button>
+            <button type="button" class="goal-preset-btn" data-ml="2500" style="flex:1; padding:7px 4px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--text-main);">2500ml</button>
+            <button type="button" class="goal-preset-btn" data-ml="3000" style="flex:1; padding:7px 4px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--text-main);">3000ml</button>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" id="close-goal-btn">Cancel</button>
+            <button type="submit" class="btn-primary">Save Goal</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
   `;
 
   attachEventListeners();
@@ -740,14 +915,120 @@ function attachEventListeners() {
   const vitalsModal = document.getElementById('vitals-modal') as HTMLDialogElement;
   const sleepModal = document.getElementById('sleep-modal') as HTMLDialogElement;
   const apptModal = document.getElementById('appointment-modal') as HTMLDialogElement;
+  const profileModal = document.getElementById('profile-modal') as HTMLDialogElement;
+  const goalModal = document.getElementById('goal-modal') as HTMLDialogElement;
 
   // Backdrop click to close modals
-  [vitalsModal, sleepModal, apptModal].forEach(modal => {
+  [vitalsModal, sleepModal, apptModal, profileModal, goalModal].forEach(modal => {
     modal?.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.close();
       }
     });
+  });
+
+  // Profile Modal Controls
+  const currentProfile = getUserProfile();
+  let stagedAvatarUrl = currentProfile.avatarUrl;
+
+  const openProfileModal = () => {
+    stagedAvatarUrl = currentProfile.avatarUrl;
+    profileModal?.showModal();
+  };
+
+  document.getElementById('open-profile-btn')?.addEventListener('click', openProfileModal);
+  document.getElementById('bmi-update-metrics-btn')?.addEventListener('click', openProfileModal);
+
+  document.getElementById('close-profile-btn')?.addEventListener('click', () => {
+    profileModal?.close();
+  });
+  document.getElementById('close-profile-x')?.addEventListener('click', () => {
+    profileModal?.close();
+  });
+
+  // Avatar Upload & Remove Handlers
+  document.getElementById('avatar-file-input')?.addEventListener('change', (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (file.size > 2.5 * 1024 * 1024) {
+      alert('Please choose an image smaller than 2.5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      stagedAvatarUrl = event.target?.result as string;
+      const preview = document.getElementById('profile-avatar-preview');
+      if (preview) {
+        preview.innerHTML = `<img src="${stagedAvatarUrl}" alt="Profile avatar" />`;
+      }
+      const removeBtn = document.getElementById('remove-avatar-btn');
+      if (removeBtn) removeBtn.style.display = 'inline-block';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('remove-avatar-btn')?.addEventListener('click', () => {
+    stagedAvatarUrl = '';
+    const preview = document.getElementById('profile-avatar-preview');
+    if (preview) {
+      preview.innerHTML = `<span class="avatar-preview-fallback">👤</span>`;
+    }
+    const removeBtn = document.getElementById('remove-avatar-btn');
+    if (removeBtn) removeBtn.style.display = 'none';
+  });
+
+  // Profile Form Submit
+  document.getElementById('profile-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = (document.getElementById('profile-name') as HTMLInputElement).value.trim();
+    const heightCm = Number((document.getElementById('profile-height') as HTMLInputElement).value) || 170;
+    const weightKg = Number((document.getElementById('profile-weight') as HTMLInputElement).value) || 70;
+    const bloodType = (document.getElementById('profile-blood-type') as HTMLSelectElement).value;
+    const waterGoal = Number((document.getElementById('profile-water-goal') as HTMLInputElement).value) || 2000;
+    const emName = (document.getElementById('profile-emergency-name') as HTMLInputElement).value.trim();
+    const emPhone = (document.getElementById('profile-emergency-phone') as HTMLInputElement).value.trim();
+    const emRel = (document.getElementById('profile-emergency-rel') as HTMLInputElement).value.trim();
+
+    saveUserProfile({
+      name,
+      avatarUrl: stagedAvatarUrl,
+      heightCm,
+      weightKg,
+      bloodType,
+      emergencyContact: emName ? { name: emName, phone: emPhone, relationship: emRel } : undefined
+    });
+
+    setCustomHydrationGoal(waterGoal);
+    profileModal?.close();
+    renderApp();
+  });
+
+  // Water Goal Quick Modal
+  document.getElementById('edit-water-goal-btn')?.addEventListener('click', () => {
+    goalModal?.showModal();
+  });
+
+  document.getElementById('close-goal-btn')?.addEventListener('click', () => {
+    goalModal?.close();
+  });
+  document.getElementById('close-goal-x')?.addEventListener('click', () => {
+    goalModal?.close();
+  });
+
+  document.querySelectorAll('.goal-preset-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const ml = (e.currentTarget as HTMLButtonElement).dataset.ml!;
+      const input = document.getElementById('quick-goal-input') as HTMLInputElement;
+      if (input) input.value = ml;
+    });
+  });
+
+  document.getElementById('quick-goal-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const targetGoal = Number((document.getElementById('quick-goal-input') as HTMLInputElement).value) || 2000;
+    setCustomHydrationGoal(targetGoal);
+    goalModal?.close();
+    renderApp();
   });
 
   // Vitals Modal

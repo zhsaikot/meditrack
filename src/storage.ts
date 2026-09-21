@@ -1,8 +1,15 @@
 // MediTrack - Storage Module
 
-import { AppData, Medicine, MedicineLog, WaterLog, MoodEntry, VitalsLog, SleepLog, Appointment } from './types';
+import { AppData, Medicine, MedicineLog, WaterLog, MoodEntry, VitalsLog, SleepLog, Appointment, UserProfile } from './types';
 
 const STORAGE_KEY = 'meditrack_data_v2';
+
+export const DEFAULT_PROFILE: UserProfile = {
+  name: '',
+  heightCm: 170,
+  weightKg: 70,
+  bloodType: 'O+'
+};
 
 const DEFAULT_DATA: AppData = {
   medicines: [],
@@ -17,7 +24,8 @@ const DEFAULT_DATA: AppData = {
     notificationsEnabled: false,
     reminderTimes: ['09:00', '14:00', '20:00'],
     theme: 'light'
-  }
+  },
+  profile: { ...DEFAULT_PROFILE }
 };
 
 export function getTodayDateString(): string {
@@ -152,11 +160,12 @@ function loadAppData(): AppData {
     return {
       ...DEFAULT_DATA,
       ...parsed,
-      settings: { ...DEFAULT_DATA.settings, ...parsed.settings }
+      settings: { ...DEFAULT_DATA.settings, ...parsed.settings },
+      profile: { ...DEFAULT_PROFILE, ...(parsed.profile || {}) }
     };
   } catch (error) {
     console.error("Failed to parse app data", error);
-    return { ...DEFAULT_DATA, settings: { ...DEFAULT_DATA.settings } };
+    return { ...DEFAULT_DATA, settings: { ...DEFAULT_DATA.settings }, profile: { ...DEFAULT_PROFILE } };
   }
 }
 
@@ -216,7 +225,8 @@ export function importAllData(jsonString: string): boolean {
         vitalsLogs: Array.isArray(data.vitalsLogs) ? data.vitalsLogs : current.vitalsLogs,
         sleepLogs: Array.isArray(data.sleepLogs) ? data.sleepLogs : current.sleepLogs,
         appointments: Array.isArray(data.appointments) ? data.appointments : current.appointments,
-        settings: { ...DEFAULT_DATA.settings, ...(data.settings || current.settings) }
+        settings: { ...DEFAULT_DATA.settings, ...(data.settings || current.settings) },
+        profile: { ...DEFAULT_PROFILE, ...(data.profile || current.profile || {}) }
       };
       saveAppData(newAppData);
       return true;
@@ -317,4 +327,48 @@ export function saveMoodEntry(entry: MoodEntry): void {
 export function getTodayMood(): MoodEntry | null {
   const today = getTodayDateString();
   return getAppData().moodEntries.find(e => e.date === today) || null;
+}
+
+export function getUserProfile(): UserProfile {
+  const data = getAppData();
+  if (!data.profile) {
+    data.profile = { ...DEFAULT_PROFILE };
+    saveAppData(data);
+  }
+  return data.profile;
+}
+
+export function saveUserProfile(profile: UserProfile): void {
+  const data = getAppData();
+  data.profile = { ...data.profile, ...profile };
+  
+  // Also synchronize weight to latest vitals if weightKg changed
+  if (profile.weightKg && (!data.vitalsLogs.length || data.vitalsLogs[0].weight !== profile.weightKg)) {
+    const today = getTodayDateString();
+    let todayVital = data.vitalsLogs.find(v => v.date === today);
+    if (todayVital) {
+      todayVital.weight = profile.weightKg;
+    } else {
+      data.vitalsLogs.unshift({
+        id: Date.now().toString(),
+        date: today,
+        timestamp: new Date().toISOString(),
+        weight: profile.weightKg
+      });
+    }
+  }
+
+  saveAppData(data);
+}
+
+export function setCustomHydrationGoal(goal: number): void {
+  const data = getAppData();
+  const validGoal = Math.max(500, Math.min(10000, Math.round(goal)));
+  data.settings.hydrationGoal = validGoal;
+  const today = getTodayDateString();
+  const log = data.hydrationLogs.find(l => l.date === today);
+  if (log) {
+    log.goal = validGoal;
+  }
+  saveAppData(data);
 }

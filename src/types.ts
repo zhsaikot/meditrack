@@ -71,6 +71,23 @@ export interface Appointment {
   createdAt: string;
 }
 
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
+export interface UserProfile {
+  name: string;
+  avatarUrl?: string;
+  heightCm: number;
+  weightKg: number;
+  birthDate?: string;
+  gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say';
+  bloodType?: string;
+  emergencyContact?: EmergencyContact;
+}
+
 export interface AppSettings {
   hydrationGoal: number;
   notificationsEnabled: boolean;
@@ -87,4 +104,5 @@ export interface AppData {
   sleepLogs: SleepLog[];
   appointments: Appointment[];
   settings: AppSettings;
+  profile?: UserProfile;
 }
