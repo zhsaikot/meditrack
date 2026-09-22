@@ -19,7 +19,8 @@ import {
   saveUserProfile,
   setCustomHydrationGoal,
   getAppLanguage,
-  setAppLanguage
+  setAppLanguage,
+  getHistoricalDataSummary
 } from './storage'
 import { calculateBMI, renderBMISpectrumSVG } from './modules/profile'
 import { initVitalsModule, addVitalsLog, getLatestVitals, getVitalsAverages } from './modules/vitals'
@@ -61,7 +62,7 @@ import {
   renderMoodSleepChartSVG, 
   calculateCorrelationInsight 
 } from './modules/trends'
-import { printDoctorReport } from './modules/report'
+import { printDoctorReport, downloadPDFReport } from './modules/report'
 import { t, setLanguage, formatNumber, Language } from './modules/i18n'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -72,7 +73,8 @@ let appState = {
   currentSymptoms: [] as string[],
   isDarkMode: false,
   notificationsEnabled: false,
-  language: getAppLanguage() as Language
+  language: getAppLanguage() as Language,
+  selectedTimeframe: 'weekly' as 'daily' | 'weekly' | 'monthly'
 };
 
 // Default dose time presets based on doses per day
@@ -329,6 +331,9 @@ function renderApp() {
     }
   }
 
+  const timeframeDays = appState.selectedTimeframe === 'daily' ? 1 : appState.selectedTimeframe === 'monthly' ? 30 : 7;
+  const timeframeSummary = getHistoricalDataSummary(timeframeDays);
+
   app.innerHTML = `
     <div class="container">
       <header class="main-header">
@@ -517,34 +522,73 @@ function renderApp() {
         <button class="btn-primary" id="save-mood-btn">${t('save_checkin_btn')} <span>→</span></button>
       </section>
 
-      <!-- Weekly Trends & Correlations -->
+      <!-- Historical Trends & Behavioral Patterns -->
       <section class="card trends-card">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('trends_eyebrow')}</p><h2>${t('trends_title')}</h2></div>
-          <span class="section-icon">📈</span>
+        <div class="trends-header-row">
+          <div>
+            <p class="eyebrow">${t('trends_eyebrow')}</p>
+            <h2>${t('trends_title')}</h2>
+          </div>
+          <div class="timeframe-switcher" role="tablist" aria-label="${t('timeframe_label')}">
+            <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'daily' ? 'active' : ''}" data-timeframe="daily">
+              ${t('view_daily')}
+            </button>
+            <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'weekly' ? 'active' : ''}" data-timeframe="weekly">
+              ${t('view_weekly')}
+            </button>
+            <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'monthly' ? 'active' : ''}" data-timeframe="monthly">
+              ${t('view_monthly')}
+            </button>
+          </div>
+        </div>
+
+        <!-- Period Summary Metrics Banner -->
+        <div class="timeframe-summary-banner">
+          <div class="timeframe-stat-item">
+            <span class="timeframe-stat-val">${formatNumber(timeframeSummary.adherence.percentage, appState.language)}%</span>
+            <span class="timeframe-stat-label">${t('stat_adherence')}</span>
+          </div>
+          <div class="timeframe-stat-item">
+            <span class="timeframe-stat-val">${formatNumber(timeframeSummary.hydration.dailyAvgMl, appState.language)} ${t('ml_unit')}</span>
+            <span class="timeframe-stat-label">${t('stat_water')} (Avg)</span>
+          </div>
+          <div class="timeframe-stat-item">
+            <span class="timeframe-stat-val">${timeframeSummary.sleep.avgDuration !== null ? formatNumber(timeframeSummary.sleep.avgDuration, appState.language) + t('hours_unit') : '--'}</span>
+            <span class="timeframe-stat-label">${t('stat_sleep')}</span>
+          </div>
+          <div class="timeframe-stat-item">
+            <span class="timeframe-stat-val">${timeframeSummary.vitals.avgSystolic && timeframeSummary.vitals.avgDiastolic ? `${formatNumber(timeframeSummary.vitals.avgSystolic, appState.language)}/${formatNumber(timeframeSummary.vitals.avgDiastolic, appState.language)}` : '--'}</span>
+            <span class="timeframe-stat-label">${appState.language === 'bn' ? 'গড় রক্তচাপ' : 'Avg BP'}</span>
+          </div>
         </div>
 
         <div class="trend-chart-container">
           <div class="trend-chart-header">
-            <span>${t('chart_hydration_title')}</span>
+            <span>${t('chart_hydration_title')} (${appState.selectedTimeframe === 'daily' ? t('view_daily') : appState.selectedTimeframe === 'monthly' ? t('view_monthly') : t('view_weekly')})</span>
             <span class="trend-legend"><span class="legend-item"><span class="legend-color" style="background:#0D9488"></span> ${t('chart_goal_met')}</span></span>
           </div>
-          ${renderHydrationChartSVG(data.hydrationLogs, hydrationGoal)}
+          ${renderHydrationChartSVG(data.hydrationLogs, hydrationGoal, timeframeDays)}
         </div>
 
         <div class="trend-chart-container">
           <div class="trend-chart-header">
-            <span>${t('chart_med_sleep_title')}</span>
+            <span>${t('chart_med_sleep_title')} (${appState.selectedTimeframe === 'daily' ? t('view_daily') : appState.selectedTimeframe === 'monthly' ? t('view_monthly') : t('view_weekly')})</span>
             <div class="trend-legend">
               <span class="legend-item"><span class="legend-color" style="background:#8B5CF6"></span> ${t('chart_legend_med')}</span>
               <span class="legend-item"><span class="legend-color" style="background:#3B82F6"></span> ${t('chart_legend_sleep')}</span>
             </div>
           </div>
-          ${renderMoodSleepChartSVG(data.moodEntries, data.sleepLogs)}
+          ${renderMoodSleepChartSVG(data.moodEntries, data.sleepLogs, timeframeDays)}
         </div>
 
         <div class="correlation-box">
           ${correlationInsight}
+        </div>
+
+        <div class="timeframe-footer-actions">
+          <button type="button" class="timeframe-report-btn" id="open-report-from-trends-btn">
+            📄 ${t('download_pdf_report')}
+          </button>
         </div>
       </section>
 
@@ -855,6 +899,11 @@ function renderApp() {
               </label>
               <input type="file" id="modal-import-file" accept=".json" style="display:none;" />
             </div>
+            <div style="margin-top: 10px;">
+              <button type="button" class="profile-backup-btn" id="modal-pdf-report-btn" style="width: 100%;">
+                📄 ${t('download_pdf_report')}
+              </button>
+            </div>
           </div>
 
           <!-- Bottom Action Buttons -->
@@ -889,6 +938,58 @@ function renderApp() {
           <div class="modal-actions">
             <button type="button" class="btn-secondary" id="close-goal-btn">${t('cancel_btn')}</button>
             <button type="submit" class="btn-primary">${t('save_goal_btn')}</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- PDF Health Report Modal -->
+    <dialog id="report-modal" class="modal">
+      <div class="modal-content report-modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+          <h3 style="margin:0;">📄 ${t('pdf_modal_title')}</h3>
+          <button type="button" class="icon-btn" id="close-report-x" style="border:none; width:30px; height:30px; font-size:1.1rem; cursor:pointer;">✕</button>
+        </div>
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.45;">
+          ${t('pdf_modal_desc')}
+        </p>
+
+        <form id="generate-report-form">
+          <div class="report-option-group">
+            <label class="form-label"><strong>${t('report_period_label')}</strong></label>
+            <div class="report-radio-options">
+              <label class="report-radio-label">
+                <input type="radio" name="report-timeframe" value="1" ${appState.selectedTimeframe === 'daily' ? 'checked' : ''} />
+                <span>${t('period_daily')}</span>
+              </label>
+              <label class="report-radio-label">
+                <input type="radio" name="report-timeframe" value="7" ${appState.selectedTimeframe === 'weekly' ? 'checked' : ''} />
+                <span>${t('period_weekly')}</span>
+              </label>
+              <label class="report-radio-label">
+                <input type="radio" name="report-timeframe" value="30" ${appState.selectedTimeframe === 'monthly' ? 'checked' : ''} />
+                <span>${t('period_monthly')}</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="report-option-group" style="margin-top: 14px;">
+            <label class="form-label"><strong>${t('report_lang_label')}</strong></label>
+            <div class="report-radio-options">
+              <label class="report-radio-label">
+                <input type="radio" name="report-lang" value="bn" ${appState.language === 'bn' ? 'checked' : ''} />
+                <span>বাংলা (Bengali)</span>
+              </label>
+              <label class="report-radio-label">
+                <input type="radio" name="report-lang" value="en" ${appState.language === 'en' ? 'checked' : ''} />
+                <span>English</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-secondary" id="close-report-btn">${t('cancel_btn')}</button>
+            <button type="submit" class="btn-primary" id="start-generate-report-btn">${t('generate_pdf_btn')}</button>
           </div>
         </form>
       </div>
@@ -931,9 +1032,20 @@ function attachEventListeners() {
     }
   });
 
+  // Timeframe Switcher
+  document.querySelectorAll<HTMLButtonElement>('.timeframe-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const tf = (e.currentTarget as HTMLButtonElement).dataset.timeframe as 'daily' | 'weekly' | 'monthly';
+      if (tf && tf !== appState.selectedTimeframe) {
+        appState.selectedTimeframe = tf;
+        renderApp();
+      }
+    });
+  });
+
   // Doctor Report Trigger
   document.getElementById('doctor-report-btn')?.addEventListener('click', () => {
-    printDoctorReport(data);
+    openReportModal();
   });
 
   // Theme Toggle
@@ -947,6 +1059,10 @@ function attachEventListeners() {
   // Profile Modal Backup & Restore
   document.getElementById('modal-export-data-btn')?.addEventListener('click', exportData);
   document.getElementById('modal-import-file')?.addEventListener('change', importData);
+  document.getElementById('modal-pdf-report-btn')?.addEventListener('click', () => {
+    profileModal?.close();
+    openReportModal();
+  });
 
   // Bottom Quick Navigation
   document.querySelectorAll('.bottom-nav-item[data-target]').forEach(btn => {
@@ -1137,14 +1253,48 @@ function attachEventListeners() {
   const apptModal = document.getElementById('appointment-modal') as HTMLDialogElement;
   const profileModal = document.getElementById('profile-modal') as HTMLDialogElement;
   const goalModal = document.getElementById('goal-modal') as HTMLDialogElement;
+  const reportModal = document.getElementById('report-modal') as HTMLDialogElement;
 
   // Backdrop click to close modals
-  [vitalsModal, sleepModal, apptModal, profileModal, goalModal].forEach(modal => {
+  [vitalsModal, sleepModal, apptModal, profileModal, goalModal, reportModal].forEach(modal => {
     modal?.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.close();
       }
     });
+  });
+
+  // PDF Report Modal Controls
+  function openReportModal(defaultDays?: number) {
+    const days = defaultDays || (appState.selectedTimeframe === 'daily' ? 1 : appState.selectedTimeframe === 'monthly' ? 30 : 7);
+    const tfRadio = document.querySelector<HTMLInputElement>(`input[name="report-timeframe"][value="${days}"]`);
+    if (tfRadio) tfRadio.checked = true;
+    const langRadio = document.querySelector<HTMLInputElement>(`input[name="report-lang"][value="${appState.language}"]`);
+    if (langRadio) langRadio.checked = true;
+    reportModal?.showModal();
+  }
+
+  document.getElementById('open-report-from-trends-btn')?.addEventListener('click', () => {
+    const defaultDays = appState.selectedTimeframe === 'daily' ? 1 : appState.selectedTimeframe === 'monthly' ? 30 : 7;
+    openReportModal(defaultDays);
+  });
+
+  document.getElementById('close-report-x')?.addEventListener('click', () => {
+    reportModal?.close();
+  });
+
+  document.getElementById('close-report-btn')?.addEventListener('click', () => {
+    reportModal?.close();
+  });
+
+  document.getElementById('generate-report-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const tfInput = document.querySelector<HTMLInputElement>('input[name="report-timeframe"]:checked');
+    const langInput = document.querySelector<HTMLInputElement>('input[name="report-lang"]:checked');
+    const selectedDays = Number(tfInput?.value) || 30;
+    const selectedLang = (langInput?.value as 'en' | 'bn') || appState.language;
+    reportModal?.close();
+    downloadPDFReport(getAppData(), selectedDays, selectedLang);
   });
 
   // Profile Modal Controls

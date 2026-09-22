@@ -384,3 +384,101 @@ export function setAppLanguage(lang: 'en' | 'bn'): void {
   data.settings.language = lang;
   saveAppData(data);
 }
+
+export function getDateNDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - (days - 1));
+  return d.toISOString().split('T')[0];
+}
+
+export interface HistoricalDataSummary {
+  timeframeDays: number;
+  startDate: string;
+  endDate: string;
+  adherence: {
+    total: number;
+    taken: number;
+    skipped: number;
+    percentage: number;
+  };
+  hydration: {
+    totalMl: number;
+    dailyAvgMl: number;
+    goalMetDays: number;
+    loggedDays: number;
+  };
+  sleep: {
+    avgDuration: number | null;
+    avgQuality: number | null;
+    totalLogged: number;
+  };
+  vitals: {
+    avgSystolic: number | null;
+    avgDiastolic: number | null;
+    avgHeartRate: number | null;
+    latestWeight: number | null;
+  };
+  mood: {
+    avgScore: number | null;
+    totalLogged: number;
+    commonSymptoms: Record<string, number>;
+  };
+}
+
+export function getHistoricalDataSummary(days: number = 30): HistoricalDataSummary {
+  const data = getAppData();
+  const endDate = getTodayDateString();
+  const startDate = getDateNDaysAgo(days);
+
+  // 1. Medicine logs in timeframe
+  const medLogs = data.medicineLogs.filter(l => l.date >= startDate && l.date <= endDate);
+  const taken = medLogs.filter(l => l.taken).length;
+  const skipped = medLogs.filter(l => l.skipped).length;
+  const totalMeds = medLogs.length;
+  const percentage = totalMeds > 0 ? Math.round((taken / totalMeds) * 100) : 100;
+
+  // 2. Hydration logs in timeframe
+  const hydLogs = data.hydrationLogs.filter(l => l.date >= startDate && l.date <= endDate);
+  const totalMl = hydLogs.reduce((sum, l) => sum + l.amount, 0);
+  const dailyAvgMl = hydLogs.length > 0 ? Math.round(totalMl / hydLogs.length) : 0;
+  const goalMetDays = hydLogs.filter(l => l.amount >= l.goal).length;
+
+  // 3. Sleep logs in timeframe
+  const slpLogs = data.sleepLogs.filter(l => l.date >= startDate && l.date <= endDate);
+  const totalDuration = slpLogs.reduce((sum, l) => sum + l.duration, 0);
+  const totalQuality = slpLogs.reduce((sum, l) => sum + l.quality, 0);
+  const avgDuration = slpLogs.length > 0 ? Math.round((totalDuration / slpLogs.length) * 10) / 10 : null;
+  const avgQuality = slpLogs.length > 0 ? Math.round((totalQuality / slpLogs.length) * 10) / 10 : null;
+
+  // 4. Vitals logs in timeframe
+  const vitLogs = data.vitalsLogs.filter(l => l.date >= startDate && l.date <= endDate);
+  const bpLogs = vitLogs.filter(l => l.bloodPressure);
+  const hrLogs = vitLogs.filter(l => typeof l.heartRate === 'number');
+  const avgSystolic = bpLogs.length > 0 ? Math.round(bpLogs.reduce((s, l) => s + l.bloodPressure!.systolic, 0) / bpLogs.length) : null;
+  const avgDiastolic = bpLogs.length > 0 ? Math.round(bpLogs.reduce((s, l) => s + l.bloodPressure!.diastolic, 0) / bpLogs.length) : null;
+  const avgHeartRate = hrLogs.length > 0 ? Math.round(hrLogs.reduce((s, l) => s + l.heartRate!, 0) / hrLogs.length) : null;
+  const latestWeight = vitLogs.find(l => typeof l.weight === 'number')?.weight || data.profile?.weightKg || null;
+
+  // 5. Mood & symptoms in timeframe
+  const moodEntries = data.moodEntries.filter(m => m.date >= startDate && m.date <= endDate);
+  const totalMoodScore = moodEntries.reduce((sum, m) => sum + m.mood, 0);
+  const avgScore = moodEntries.length > 0 ? Math.round((totalMoodScore / moodEntries.length) * 10) / 10 : null;
+  
+  const symptomCounts: Record<string, number> = {};
+  moodEntries.forEach(m => {
+    (m.symptoms || []).forEach(s => {
+      symptomCounts[s] = (symptomCounts[s] || 0) + 1;
+    });
+  });
+
+  return {
+    timeframeDays: days,
+    startDate,
+    endDate,
+    adherence: { total: totalMeds, taken, skipped, percentage },
+    hydration: { totalMl, dailyAvgMl, goalMetDays, loggedDays: hydLogs.length },
+    sleep: { avgDuration, avgQuality, totalLogged: slpLogs.length },
+    vitals: { avgSystolic, avgDiastolic, avgHeartRate, latestWeight },
+    mood: { avgScore, totalLogged: moodEntries.length, commonSymptoms: symptomCounts }
+  };
+}

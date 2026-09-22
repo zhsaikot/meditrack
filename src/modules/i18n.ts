@@ -273,7 +273,35 @@ const translations: Record<Language, Record<string, string>> = {
     backup_section_title: 'Data Backup & Restore',
     backup_section_desc: 'Download your personal health data as JSON or restore from a previous backup file.',
     backup_download_btn: 'Download Backup (JSON)',
-    backup_restore_btn: 'Restore Backup File'
+    backup_restore_btn: 'Restore Backup File',
+
+    // Timeframe & History View
+    view_daily: 'Today',
+    view_weekly: '7 Days',
+    view_monthly: '30 Days',
+    timeframe_label: 'View Period:',
+
+    // PDF Health Report Modal & Generator
+    download_pdf_report: 'Download PDF Report',
+    pdf_modal_title: 'Download Health Report (PDF)',
+    pdf_modal_desc: 'Generate and save a comprehensive clinical report to your device or print it for your doctor visit.',
+    report_period_label: 'Report Timeframe:',
+    report_lang_label: 'Report Language:',
+    period_daily: 'Daily Snapshot (Today)',
+    period_weekly: '7-Day Summary (Weekly)',
+    period_monthly: '30-Day Comprehensive (Monthly)',
+    generate_pdf_btn: '📥 Generate & Download PDF',
+    generating_pdf: 'Preparing Report...',
+    report_title_daily: 'Daily Patient Health Summary',
+    report_title_weekly: '7-Day Health & Adherence Report',
+    report_title_monthly: '30-Day Comprehensive Medical Report',
+    patient_demographics: '1. Patient Demographics & Baseline Metrics',
+    med_adherence_section: '2. Medication Regimen & Adherence Rate',
+    vitals_section: '3. Vital Signs & Clinical Trends',
+    hydration_section: '4. Hydration & Daily Fluid Balance',
+    symptoms_sleep_section: '5. Rest, Sleep Quality & Reported Symptoms',
+    doctor_notes_title: 'Doctor / Physician Observations & Treatment Plan',
+    doctor_sig_line: "Physician's Signature & Date"
   },
   bn: {
     // Header & Branding
@@ -521,7 +549,35 @@ const translations: Record<Language, Record<string, string>> = {
     backup_section_title: 'ডাটা ব্যাকআপ ও রিস্টোর',
     backup_section_desc: 'আপনার সম্পূর্ণ স্বাস্থ্য তথ্য ব্যাকআপ ডাউনলোড করুন অথবা পূর্বের ব্যাকআপ ফাইল থেকে রিস্টোর করুন।',
     backup_download_btn: 'ডাটা ব্যাকআপ ডাউনলোড (JSON)',
-    backup_restore_btn: 'ব্যাকআপ ফাইল রিস্টোর করুন'
+    backup_restore_btn: 'ব্যাকআপ ফাইল রিস্টোর করুন',
+
+    // Timeframe & History View
+    view_daily: 'আজকের',
+    view_weekly: '৭ দিন',
+    view_monthly: '৩০ দিন',
+    timeframe_label: 'সময়কাল নির্বাচন:',
+
+    // PDF Health Report Modal & Generator
+    download_pdf_report: 'পিডিএফ রিপোর্ট ডাউনলোড',
+    pdf_modal_title: 'স্বাস্থ্য রিপোর্ট ডাউনলোড (পিডিএফ)',
+    pdf_modal_desc: 'আপনার সম্পূর্ণ ক্লিনিক্যাল স্বাস্থ্য রিপোর্ট ডিভাইসে সংরক্ষণ করুন অথবা চিকিৎসকের পরামর্শের জন্য প্রিন্ট করুন।',
+    report_period_label: 'রিপোর্টের সময়কাল:',
+    report_lang_label: 'রিপোর্টের ভাষা:',
+    period_daily: 'দৈনিক সামারি (আজকের)',
+    period_weekly: '৭ দিনের অগ্রগতি রিপোর্ট (সাপ্তাহিক)',
+    period_monthly: '৩০ দিনের পূর্ণাঙ্গ রিপোর্ট (মাসিক)',
+    generate_pdf_btn: '📥 পিডিএফ রিপোর্ট তৈরি ও ডাউনলোড',
+    generating_pdf: 'রিপোর্ট প্রস্তুত হচ্ছে...',
+    report_title_daily: 'দৈনিক স্বাস্থ্য বিবরণী ও অগ্রগতি',
+    report_title_weekly: '৭ দিনের সামগ্রিক স্বাস্থ্য ও ওষুধ সেবন রিপোর্ট',
+    report_title_monthly: '৩০ দিনের পূর্ণাঙ্গ মেডিকেল সামারি রিপোর্ট',
+    patient_demographics: '১. রোগীর পরিচিতি ও বেসলাইন তথ্য',
+    med_adherence_section: '২. ওষুধের তালিকা ও সেবনের পরিসংখ্যান',
+    vitals_section: '৩. গুরুত্বপূর্ণ স্বাস্থ্য লক্ষণ (ভাইটালস) ও প্রবণতা',
+    hydration_section: '৪. দৈনিক পানি পান ও হাইড্রেশন ব্যালান্স',
+    symptoms_sleep_section: '৫. ঘুম, মানসিক অবস্থা ও শারীরিক লক্ষণসমূহের বিশ্লেষণ',
+    doctor_notes_title: 'চিকিৎসকের পর্যবেক্ষণ ও পরামর্শ',
+    doctor_sig_line: 'চিকিৎসকের স্বাক্ষর ও তারিখ'
   }
 };
 

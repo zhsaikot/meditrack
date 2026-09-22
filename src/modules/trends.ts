@@ -52,33 +52,51 @@ export function getMilestones(currentStreak: number): {
   return { milestones, currentBadge, nextBadge, progressToNext };
 }
 
-export function generateLast7DaysLabels(): { dateStr: string; label: string }[] {
+export function generateDaysLabels(daysCount: number = 7): { dateStr: string; label: string }[] {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const result: { dateStr: string; label: string }[] = [];
   const today = new Date();
 
-  for (let i = 6; i >= 0; i--) {
+  for (let i = daysCount - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
+    let label = '';
+    if (daysCount === 1) {
+      label = 'Today';
+    } else if (daysCount <= 7) {
+      label = i === 0 ? 'Today' : days[d.getDay()];
+    } else {
+      label = `${d.getDate()} ${months[d.getMonth()]}`;
+    }
     result.push({
       dateStr,
-      label: i === 0 ? 'Today' : days[d.getDay()]
+      label
     });
   }
 
   return result;
 }
 
-export function renderHydrationChartSVG(hydrationLogs: WaterLog[], goal: number = 2000): string {
-  const days = generateLast7DaysLabels();
+export function generateLast7DaysLabels(): { dateStr: string; label: string }[] {
+  return generateDaysLabels(7);
+}
+
+export function renderHydrationChartSVG(hydrationLogs: WaterLog[], goal: number = 2000, daysCount: number = 7): string {
+  const days = generateDaysLabels(daysCount);
   const width = 460;
   const height = 150;
   const padding = { top: 25, right: 20, bottom: 30, left: 45 };
   const chartW = width - padding.left - padding.right;
   const chartH = height - padding.top - padding.bottom;
 
-  const barWidth = 26;
+  let barWidth = 26;
+  if (daysCount === 1) {
+    barWidth = 64;
+  } else if (daysCount > 14) {
+    barWidth = Math.max(7, Math.floor((chartW / days.length) * 0.7));
+  }
   const step = chartW / days.length;
   const maxVal = Math.max(goal, ...hydrationLogs.map(l => l.amount), 2500);
 
@@ -92,11 +110,17 @@ export function renderHydrationChartSVG(hydrationLogs: WaterLog[], goal: number 
     const y = padding.top + chartH - barH;
     const isMet = amount >= goal;
 
+    let showLabel = true;
+    if (daysCount > 7) {
+      showLabel = (idx % 5 === 0) || (idx === days.length - 1);
+    }
+    const showValue = daysCount <= 7 ? amount > 0 : (amount > 0 && showLabel);
+
     return `
       <g class="chart-bar-group">
-        <rect x="${x}" y="${y}" width="${barWidth}" height="${barH}" rx="6" fill="${isMet ? '#0D9488' : '#5EEAD4'}" opacity="0.9" />
-        <text x="${x + barWidth / 2}" y="${height - 10}" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">${day.label}</text>
-        ${amount > 0 ? `<text x="${x + barWidth / 2}" y="${Math.max(y - 4, 15)}" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">${Math.round(amount)}</text>` : ''}
+        <rect x="${x}" y="${y}" width="${barWidth}" height="${barH}" rx="${daysCount > 14 ? 3 : 6}" fill="${isMet ? '#0D9488' : '#5EEAD4'}" opacity="0.9" />
+        ${showLabel ? `<text x="${x + barWidth / 2}" y="${height - 10}" text-anchor="middle" font-size="${daysCount > 7 ? 9 : 11}" fill="currentColor" opacity="0.7">${day.label}</text>` : ''}
+        ${showValue ? `<text x="${x + barWidth / 2}" y="${Math.max(y - 4, 15)}" text-anchor="middle" font-size="${daysCount > 7 ? 8 : 10}" font-weight="700" fill="currentColor">${Math.round(amount)}</text>` : ''}
       </g>
     `;
   }).join('');
@@ -113,19 +137,19 @@ export function renderHydrationChartSVG(hydrationLogs: WaterLog[], goal: number 
   `;
 }
 
-export function renderMoodSleepChartSVG(moodEntries: MoodEntry[], sleepLogs: SleepLog[]): string {
-  const days = generateLast7DaysLabels();
+export function renderMoodSleepChartSVG(moodEntries: MoodEntry[], sleepLogs: SleepLog[], daysCount: number = 7): string {
+  const days = generateDaysLabels(daysCount);
   const width = 460;
   const height = 150;
   const padding = { top: 25, right: 35, bottom: 30, left: 35 };
   const chartW = width - padding.left - padding.right;
   const chartH = height - padding.top - padding.bottom;
-  const step = chartW / (days.length - 1);
+  const step = days.length > 1 ? chartW / (days.length - 1) : chartW;
 
   // Points for Mood (1 to 5)
   const moodPoints: { x: number; y: number; val: number | null }[] = days.map((d, i) => {
     const entry = moodEntries.find(m => m.date === d.dateStr);
-    const x = padding.left + i * step;
+    const x = padding.left + (days.length > 1 ? i * step : chartW / 2);
     if (entry && entry.mood) {
       const y = padding.top + chartH - ((entry.mood - 1) / 4) * chartH;
       return { x, y, val: entry.mood };
@@ -136,7 +160,7 @@ export function renderMoodSleepChartSVG(moodEntries: MoodEntry[], sleepLogs: Sle
   // Points for Sleep (0 to 12 hours)
   const sleepPoints: { x: number; y: number; val: number | null }[] = days.map((d, i) => {
     const log = sleepLogs.find(s => s.date === d.dateStr);
-    const x = padding.left + i * step;
+    const x = padding.left + (days.length > 1 ? i * step : chartW / 2);
     if (log && log.duration) {
       const y = padding.top + chartH - (Math.min(12, log.duration) / 12) * chartH;
       return { x, y, val: log.duration };
@@ -155,18 +179,24 @@ export function renderMoodSleepChartSVG(moodEntries: MoodEntry[], sleepLogs: Sle
     : '';
 
   const labels = days.map((d, i) => {
-    const x = padding.left + i * step;
-    return `<text x="${x}" y="${height - 10}" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.7">${d.label}</text>`;
+    const x = padding.left + (days.length > 1 ? i * step : chartW / 2);
+    if (daysCount > 7 && (i % 5 !== 0 && i !== days.length - 1)) {
+      return '';
+    }
+    return `<text x="${x}" y="${height - 10}" text-anchor="middle" font-size="${daysCount > 7 ? 9 : 11}" fill="currentColor" opacity="0.7">${d.label}</text>`;
   }).join('');
 
+  const moodRadius = daysCount > 14 ? 3 : 4.5;
+  const sleepRadius = daysCount > 14 ? 2.5 : 4;
+
   const moodDots = validMood.map(p => `
-    <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="#8B5CF6" stroke="#FFFFFF" stroke-width="1.5" />
-    <text x="${p.x}" y="${p.y - 8}" text-anchor="middle" font-size="9" font-weight="700" fill="#8B5CF6">${p.val}★</text>
+    <circle cx="${p.x}" cy="${p.y}" r="${moodRadius}" fill="#8B5CF6" stroke="#FFFFFF" stroke-width="1.5" />
+    ${daysCount <= 7 ? `<text x="${p.x}" y="${p.y - 8}" text-anchor="middle" font-size="9" font-weight="700" fill="#8B5CF6">${p.val}★</text>` : ''}
   `).join('');
 
   const sleepDots = validSleep.map(p => `
-    <circle cx="${p.x}" cy="${p.y}" r="4" fill="#3B82F6" stroke="#FFFFFF" stroke-width="1.5" />
-    <text x="${p.x}" y="${p.y + 13}" text-anchor="middle" font-size="9" font-weight="700" fill="#3B82F6">${p.val}h</text>
+    <circle cx="${p.x}" cy="${p.y}" r="${sleepRadius}" fill="#3B82F6" stroke="#FFFFFF" stroke-width="1.5" />
+    ${daysCount <= 7 ? `<text x="${p.x}" y="${p.y + 13}" text-anchor="middle" font-size="9" font-weight="700" fill="#3B82F6">${p.val}h</text>` : ''}
   `).join('');
 
   return `
