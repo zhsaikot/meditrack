@@ -2817,4 +2817,112 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   }
 }
 
+/* Profile Preferences Section */
+.profile-preferences-section {
+  margin-bottom: 12px;
+  padding: 10px 14px 12px;
+  background: var(--bg-primary);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.profile-preferences-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.pref-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pref-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pref-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.pref-toggle-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.pref-toggle-btn.active {
+  border-color: var(--color-primary);
+  background: rgba(13, 148, 136, 0.08);
+  color: var(--color-primary);
+}
+
+.pref-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.dark-mode .profile-preferences-section {
+  background: #0F172A;
+  border-color: #334155;
+}
+
+.dark-mode .pref-label {
+  color: #94A3B8;
+}
+
+.dark-mode .pref-toggle-btn {
+  background: #1E293B;
+  border-color: #334155;
+  color: #E2E8F0;
+}
+
+.dark-mode .pref-toggle-btn:hover {
+  border-color: #2DD4BF;
+  color: #2DD4BF;
+  background: #334155;
+}
+
+.dark-mode .pref-toggle-btn.active {
+  border-color: #2DD4BF;
+  background: rgba(45, 212, 191, 0.12);
+  color: #2DD4BF;
+}
+
+@media (max-width: 599px) {
+  .profile-preferences-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .pref-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pref-toggle-btn {
+    min-width: 120px;
+    padding: 6px 12px;
+  }
+}
+
+
 

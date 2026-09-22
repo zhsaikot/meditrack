@@ -345,25 +345,6 @@ function renderApp() {
             <p class="subtitle">${t('brand_subtitle')}</p>
           </div>
         </div>
-        <div class="header-actions">
-          <button class="lang-toggle-btn" id="toggle-lang-btn" title="${t('switch_language')}" aria-label="${t('switch_language')}">
-            <span class="lang-badge">${appState.language === 'bn' ? 'বাং' : 'EN'}</span>
-          </button>
-          <button class="profile-avatar-btn" id="open-profile-btn" title="${t('profile_btn_title')}" aria-label="${t('profile_btn_title')}">
-            ${profile.avatarUrl ? `
-              <img src="${profile.avatarUrl}" alt="${escapeHtml(profile.name || 'User')}" class="profile-avatar-img" />
-            ` : `
-              <span class="profile-avatar-fallback">${firstName ? escapeHtml(firstName[0]) : '👤'}</span>
-            `}
-          </button>
-          <button class="icon-btn ${appState.notificationsEnabled ? 'notification-bell active' : 'notification-bell'}" id="toggle-notifications-btn" title="${appState.notificationsEnabled ? t('reminders_active') : t('enable_reminders')}">
-            ${appState.notificationsEnabled ? '🔔' : '🔕'}
-          </button>
-          <button class="icon-btn" id="doctor-report-btn" title="${t('doctor_report_title')}">📋</button>
-          <button class="icon-btn" id="toggle-theme-btn" title="${t('toggle_theme_title')}">
-            ${appState.isDarkMode ? '☀️' : '🌙'}
-          </button>
-        </div>
       </header>
 
       <div class="date-strip">
@@ -827,6 +808,34 @@ function renderApp() {
           </div>
         </div>
 
+        <!-- Section 1: App Preferences & Settings -->
+        <div class="profile-preferences-section">
+          <div class="profile-section-legend">⚙️ ${t('preferences_legend')}</div>
+          <div class="profile-preferences-row">
+            <div class="pref-item">
+              <span class="pref-label">${t('language_label')}</span>
+              <button type="button" class="pref-toggle-btn" id="modal-toggle-lang-btn" title="${t('switch_language')}">
+                <span class="pref-icon">🌐</span>
+                <span>${appState.language === 'bn' ? 'বাংলা' : 'English'}</span>
+              </button>
+            </div>
+            <div class="pref-item">
+              <span class="pref-label">${t('reminders_label')}</span>
+              <button type="button" class="pref-toggle-btn ${appState.notificationsEnabled ? 'active' : ''}" id="modal-toggle-notifications-btn" title="${appState.notificationsEnabled ? t('reminders_active') : t('enable_reminders')}">
+                <span class="pref-icon">${appState.notificationsEnabled ? '🔔' : '🔕'}</span>
+                <span>${appState.notificationsEnabled ? t('status_enabled') : t('status_disabled')}</span>
+              </button>
+            </div>
+            <div class="pref-item">
+              <span class="pref-label">${t('theme_label')}</span>
+              <button type="button" class="pref-toggle-btn" id="modal-toggle-theme-btn" title="${t('toggle_theme_title')}">
+                <span class="pref-icon">${appState.isDarkMode ? '🌙' : '☀️'}</span>
+                <span>${appState.isDarkMode ? t('theme_dark') : t('theme_light')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <form id="profile-form">
           <!-- 3-Column Balanced Biometrics Grid -->
           <div class="profile-fields-grid">
@@ -1002,36 +1011,6 @@ function renderApp() {
 function attachEventListeners() {
   const data = getAppData();
 
-  // Language Toggle
-  document.getElementById('toggle-lang-btn')?.addEventListener('click', () => {
-    appState.language = appState.language === 'en' ? 'bn' : 'en';
-    setAppLanguage(appState.language);
-    setLanguage(appState.language);
-    saveAppState();
-    renderApp();
-  });
-
-  // Notification Bell Toggle
-  document.getElementById('toggle-notifications-btn')?.addEventListener('click', async () => {
-    if (!appState.notificationsEnabled) {
-      const granted = await requestNotificationPermission();
-      if (granted) {
-        appState.notificationsEnabled = true;
-        saveAppState();
-        sendLocalNotification('Notifications Active 🔔', 'MediTrack will remind you when it is time for your medication.');
-        renderApp();
-      } else {
-        alert(appState.language === 'bn' 
-          ? 'নোটিফিকেশন অনুমতি পাওয়া যায়নি। আপনার ব্রাউজার সেটিংস থেকে চালু করতে পারেন।' 
-          : 'Notification permission was not granted. You can enable it in your browser settings.');
-      }
-    } else {
-      appState.notificationsEnabled = false;
-      saveAppState();
-      renderApp();
-    }
-  });
-
   // Timeframe Switcher
   document.querySelectorAll<HTMLButtonElement>('.timeframe-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -1041,19 +1020,6 @@ function attachEventListeners() {
         renderApp();
       }
     });
-  });
-
-  // Doctor Report Trigger
-  document.getElementById('doctor-report-btn')?.addEventListener('click', () => {
-    openReportModal();
-  });
-
-  // Theme Toggle
-  document.getElementById('toggle-theme-btn')?.addEventListener('click', () => {
-    appState.isDarkMode = !appState.isDarkMode;
-    document.documentElement.classList.toggle('dark-mode', appState.isDarkMode);
-    saveAppState();
-    renderApp();
   });
 
   // Profile Modal Backup & Restore
@@ -1300,7 +1266,7 @@ function attachEventListeners() {
   // Profile Modal Controls
   let stagedAvatarUrl = getUserProfile().avatarUrl;
 
-  const openProfileModal = () => {
+  function openProfileModal() {
     const prof = getUserProfile();
     stagedAvatarUrl = prof.avatarUrl;
     const preview = document.getElementById('profile-avatar-preview');
@@ -1315,9 +1281,51 @@ function attachEventListeners() {
       removeBtn.style.display = prof.avatarUrl ? 'inline-block' : 'none';
     }
     profileModal?.showModal();
-  };
+  }
 
-  document.getElementById('open-profile-btn')?.addEventListener('click', openProfileModal);
+  // Profile Modal: Preferences & Settings Controls
+  document.getElementById('modal-toggle-lang-btn')?.addEventListener('click', () => {
+    appState.language = appState.language === 'en' ? 'bn' : 'en';
+    setAppLanguage(appState.language);
+    setLanguage(appState.language);
+    saveAppState();
+    renderApp();
+    openProfileModal();
+  });
+
+  document.getElementById('modal-toggle-notifications-btn')?.addEventListener('click', async () => {
+    if (!appState.notificationsEnabled) {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        appState.notificationsEnabled = true;
+        saveAppState();
+        sendLocalNotification(
+          appState.language === 'bn' ? 'নোটিফিকেশন সক্রিয় হয়েছে 🔔' : 'Notifications Active 🔔',
+          appState.language === 'bn' ? 'মেডিট্র্যাক যথাসময়ে আপনার ওষুধ ও পানি পানের কথা মনে করিয়ে দেবে।' : 'MediTrack will remind you when it is time for your medication.'
+        );
+        renderApp();
+        openProfileModal();
+      } else {
+        alert(appState.language === 'bn' 
+          ? 'নোটিফিকেশন অনুমতি পাওয়া যায়নি। আপনার ব্রাউজার সেটিংস থেকে চালু করতে পারেন।' 
+          : 'Notification permission was not granted. You can enable it in your browser settings.');
+      }
+    } else {
+      appState.notificationsEnabled = false;
+      saveAppState();
+      renderApp();
+      openProfileModal();
+    }
+  });
+
+  document.getElementById('modal-toggle-theme-btn')?.addEventListener('click', () => {
+    appState.isDarkMode = !appState.isDarkMode;
+    document.documentElement.classList.toggle('dark-mode', appState.isDarkMode);
+    saveAppState();
+    renderApp();
+    openProfileModal();
+  });
+
   document.getElementById('bmi-update-metrics-btn')?.addEventListener('click', openProfileModal);
 
   document.getElementById('close-profile-btn')?.addEventListener('click', () => {

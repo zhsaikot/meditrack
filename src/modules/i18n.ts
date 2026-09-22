@@ -198,6 +198,14 @@ const translations: Record<Language, Record<string, string>> = {
     // Modals
     // Profile Modal
     profile_modal_heading: 'Profile & Health Baseline',
+    preferences_legend: 'App Preferences & Settings',
+    theme_label: 'Display Theme',
+    reminders_label: 'Reminders',
+    language_label: 'Language',
+    theme_dark: 'Dark Mode',
+    theme_light: 'Light Mode',
+    status_enabled: 'Active',
+    status_disabled: 'Disabled',
     avatar_change_btn: 'Change photo',
     avatar_remove_btn: 'Remove',
     avatar_hint: 'Stored offline in browser',
@@ -474,6 +482,14 @@ const translations: Record<Language, Record<string, string>> = {
     // Modals
     // Profile Modal
     profile_modal_heading: 'প্রোফাইল ও স্বাস্থ্য বেসলাইন',
+    preferences_legend: 'অ্যাপ সেটিংস ও পছন্দসমূহ',
+    theme_label: 'ডিসপ্লে থিম',
+    reminders_label: 'অনুস্মারক',
+    language_label: 'ভাষা',
+    theme_dark: 'ডার্ক মোড',
+    theme_light: 'লাইট মোড',
+    status_enabled: 'সক্রিয়',
+    status_disabled: 'বন্ধ',
     avatar_change_btn: 'ছবি পরিবর্তন',
     avatar_remove_btn: 'মুছুন',
     avatar_hint: 'ব্রাউজারে নিরাপদে সংরক্ষিত',
