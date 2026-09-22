@@ -249,11 +249,31 @@ const translations: Record<Language, Record<string, string>> = {
     appt_location_ph: 'e.g., City General Hospital',
     appt_date_field: 'Date',
     appt_time_field: 'Time',
-    save_appt_btn: 'Save Appointment',
-
     // Footer
     created_by: 'Created by',
-    footer_attribution: 'Created by'
+    footer_attribution: 'Created by',
+
+    // Navigation Bar
+    nav_medicines: 'Medicines',
+    nav_hydration: 'Water',
+    nav_vitals: 'Vitals',
+    nav_profile: 'Profile',
+
+    // Reminders & Notifications
+    water_reminder_title: 'Hydration Reminder 💧',
+    water_reminder_body: 'Time to drink a fresh glass of water to stay healthy and hydrated!',
+    med_reminder_title: 'Medication Reminder 💊',
+    med_reminder_body: 'Time to take your scheduled dose: {name} ({dosage})',
+    toast_add_water_btn: '+250ml Water',
+    toast_mark_taken_btn: 'Mark Taken',
+    toast_water_success: 'Logged 250ml water! 💧',
+    toast_med_success: 'Dose marked as taken! ✨',
+
+    // Profile Backup & Restore Section
+    backup_section_title: 'Data Backup & Restore',
+    backup_section_desc: 'Download your personal health data as JSON or restore from a previous backup file.',
+    backup_download_btn: 'Download Backup (JSON)',
+    backup_restore_btn: 'Restore Backup File'
   },
   bn: {
     // Header & Branding
@@ -477,11 +497,31 @@ const translations: Record<Language, Record<string, string>> = {
     appt_location_ph: 'যেমন: স্কয়ার হাসপাতাল',
     appt_date_field: 'তারিখ',
     appt_time_field: 'সময়',
-    save_appt_btn: 'অ্যাপয়েন্টমেন্ট সংরক্ষণ',
-
     // Footer
     created_by: 'তৈরি করেছেন',
-    footer_attribution: 'তৈরি করেছেন'
+    footer_attribution: 'তৈরি করেছেন',
+
+    // Navigation Bar
+    nav_medicines: 'ওষুধ',
+    nav_hydration: 'পানি',
+    nav_vitals: 'ভাইটালস',
+    nav_profile: 'প্রোফাইল',
+
+    // Reminders & Notifications
+    water_reminder_title: 'পানি পানের রিমাইন্ডার 💧',
+    water_reminder_body: 'সুস্থ ও সতেজ থাকতে এক গ্লাস পানি পান করার সময় হয়েছে!',
+    med_reminder_title: 'ওষুধ খাওয়ার রিমাইন্ডার 💊',
+    med_reminder_body: 'আপনার ওষুধ খাওয়ার সময় হয়েছে: {name} ({dosage})',
+    toast_add_water_btn: '+২৫০মিলি পানি',
+    toast_mark_taken_btn: 'খেয়েছি ✓',
+    toast_water_success: '২৫০ মিলি পানি যোগ করা হয়েছে! 💧',
+    toast_med_success: 'ওষুধ গ্রহণ সম্পন্ন হয়েছে! ✨',
+
+    // Profile Backup & Restore Section
+    backup_section_title: 'ডাটা ব্যাকআপ ও রিস্টোর',
+    backup_section_desc: 'আপনার সম্পূর্ণ স্বাস্থ্য তথ্য ব্যাকআপ ডাউনলোড করুন অথবা পূর্বের ব্যাকআপ ফাইল থেকে রিস্টোর করুন।',
+    backup_download_btn: 'ডাটা ব্যাকআপ ডাউনলোড (JSON)',
+    backup_restore_btn: 'ব্যাকআপ ফাইল রিস্টোর করুন'
   }
 };
 

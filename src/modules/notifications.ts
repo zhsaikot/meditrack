@@ -1,7 +1,17 @@
 // MediTrack - Notifications & Reminders Module
+import { t } from './i18n';
 
 let reminderInterval: number | null = null;
 let lastFiredMinute: string = '';
+let lastFiredWaterHour: number = -1;
+
+export interface PendingMedItem {
+  id: string;
+  doseIndex: number;
+  name: string;
+  dosage: string;
+  time: string;
+}
 
 export function isNotificationSupported(): boolean {
   return typeof window !== 'undefined' && 'Notification' in window;
@@ -63,8 +73,83 @@ export function sendLocalNotification(title: string, body: string): void {
   }
 }
 
+// In-App Interactive Toast Banner
+export interface InAppToastOptions {
+  title: string;
+  message: string;
+  icon?: string;
+  actionText?: string;
+  onAction?: () => void;
+  durationMs?: number;
+}
+
+export function showInAppToast(options: InAppToastOptions): void {
+  if (typeof document === 'undefined') return;
+
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'in-app-toast';
+  toast.innerHTML = `
+    <div class="toast-icon">${options.icon || '🔔'}</div>
+    <div class="toast-body">
+      <strong>${options.title}</strong>
+      <span>${options.message}</span>
+    </div>
+    <div class="toast-actions">
+      ${options.actionText ? `<button class="toast-btn toast-action-btn">${options.actionText}</button>` : ''}
+      <button class="toast-btn toast-close-btn" aria-label="Close">✕</button>
+    </div>
+  `;
+
+  if (options.actionText && options.onAction) {
+    toast.querySelector('.toast-action-btn')?.addEventListener('click', () => {
+      options.onAction?.();
+      removeToast(toast);
+    });
+  }
+
+  toast.querySelector('.toast-close-btn')?.addEventListener('click', () => {
+    removeToast(toast);
+  });
+
+  container.appendChild(toast);
+
+  // Auto remove after duration
+  const timer = setTimeout(() => {
+    removeToast(toast);
+  }, options.durationMs || 6000);
+
+  function removeToast(el: HTMLElement) {
+    clearTimeout(timer);
+    el.classList.add('toast-fade-out');
+    setTimeout(() => {
+      el.remove();
+    }, 250);
+  }
+}
+
+export function showQuickToast(message: string, icon: string = '✨'): void {
+  showInAppToast({
+    title: message,
+    message: '',
+    icon,
+    durationMs: 3000
+  });
+}
+
 export function startReminderScheduler(
-  getPendingMeds: () => { name: string; dosage: string; time: string }[]
+  getPendingMeds: () => PendingMedItem[],
+  callbacks?: {
+    onTakeMed?: (id: string, doseIndex: number) => void;
+    onAddWater?: () => void;
+  }
 ): void {
   if (reminderInterval !== null) {
     window.clearInterval(reminderInterval);
@@ -72,10 +157,30 @@ export function startReminderScheduler(
 
   const checkReminders = () => {
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const currentHour = now.getHours();
+    const currentMinuteNum = now.getMinutes();
+    const hours = String(currentHour).padStart(2, '0');
+    const minutes = String(currentMinuteNum).padStart(2, '0');
     const currentHM = `${hours}:${minutes}`;
 
+    // 1. Water Reminder Check (Every 2 hours during daytime 08:00 - 22:00)
+    if (currentHour >= 8 && currentHour <= 22 && currentHour % 2 === 0) {
+      if (lastFiredWaterHour !== currentHour && currentMinuteNum <= 5) {
+        lastFiredWaterHour = currentHour;
+        const title = t('water_reminder_title');
+        const body = t('water_reminder_body');
+        sendLocalNotification(title, body);
+        showInAppToast({
+          icon: '💧',
+          title,
+          message: body,
+          actionText: t('toast_add_water_btn'),
+          onAction: () => callbacks?.onAddWater?.()
+        });
+      }
+    }
+
+    // 2. Medicine Reminder Check (At specific scheduled dose times)
     if (currentHM === lastFiredMinute) return;
 
     const pending = getPendingMeds();
@@ -84,16 +189,21 @@ export function startReminderScheduler(
     if (dueMeds.length > 0) {
       lastFiredMinute = currentHM;
       dueMeds.forEach(med => {
-        sendLocalNotification(
-          'MediTrack Reminder 💊',
-          `Time to take your scheduled dose: ${med.name} (${med.dosage})`
-        );
+        const title = t('med_reminder_title');
+        const body = t('med_reminder_body', { name: med.name, dosage: med.dosage });
+        sendLocalNotification(title, body);
+        showInAppToast({
+          icon: '💊',
+          title,
+          message: `${med.name} (${med.dosage})`,
+          actionText: t('toast_mark_taken_btn'),
+          onAction: () => callbacks?.onTakeMed?.(med.id, med.doseIndex)
+        });
       });
     }
   };
 
-  // Check immediately and then every 30 seconds
+  // Check immediately and then every 20 seconds
   checkReminders();
-  reminderInterval = window.setInterval(checkReminders, 30000);
+  reminderInterval = window.setInterval(checkReminders, 20000);
 }
-

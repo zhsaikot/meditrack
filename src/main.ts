@@ -51,7 +51,9 @@ import {
   requestNotificationPermission, 
   getNotificationPermission, 
   startReminderScheduler,
-  sendLocalNotification
+  sendLocalNotification,
+  showInAppToast,
+  showQuickToast
 } from './modules/notifications'
 import { 
   getMilestones, 
@@ -112,16 +114,32 @@ function loadAppState() {
 
   // Start notification scheduler
   if (appState.notificationsEnabled) {
-    startReminderScheduler(() => {
-      const list = getTodayMedicineList();
-      return list
-        .filter(({ log }) => !log?.taken && !log?.skipped)
-        .map(({ medicine, time }) => ({
-          name: medicine.name,
-          dosage: medicine.dosage,
-          time: time
-        }));
-    });
+    startReminderScheduler(
+      () => {
+        const list = getTodayMedicineList();
+        return list
+          .filter(({ log }) => !log?.taken && !log?.skipped)
+          .map(({ medicine, time, doseIndex }) => ({
+            id: medicine.id,
+            doseIndex,
+            name: medicine.name,
+            dosage: medicine.dosage,
+            time: time
+          }));
+      },
+      {
+        onTakeMed: (id: string, doseIndex: number) => {
+          markMedicineTaken(id, doseIndex);
+          showQuickToast(t('toast_med_success'), '✨');
+          renderApp();
+        },
+        onAddWater: () => {
+          addWater(250);
+          showQuickToast(t('toast_water_success'), '💧');
+          renderApp();
+        }
+      }
+    );
   }
 }
 
@@ -340,9 +358,6 @@ function renderApp() {
           <button class="icon-btn" id="toggle-theme-btn" title="${t('toggle_theme_title')}">
             ${appState.isDarkMode ? '☀️' : '🌙'}
           </button>
-          <button class="icon-btn" id="export-data-btn" title="${t('export_backup_title')}">💾</button>
-          <label class="icon-btn" for="import-file" title="${t('import_backup_title')}">📁</label>
-          <input type="file" id="import-file" accept=".json" style="display:none" />
         </div>
       </header>
 
@@ -658,6 +673,26 @@ function renderApp() {
       <footer class="app-footer">
         <p class="copyright-text">${appState.language === 'bn' ? 'তৈরি করেছেন' : 'Created by'} <a href="https://www.instagram.com/zhsaikot" target="_blank" rel="noopener noreferrer" class="creator-link">MD. Ziaul Hasan</a></p>
       </footer>
+
+      <!-- Sticky Bottom Quick Navigation Bar -->
+      <nav class="bottom-nav-bar" aria-label="Quick Navigation">
+        <button class="bottom-nav-item" id="nav-meds-btn" data-target="#medicine-schedule-section" title="${t('nav_medicines')}">
+          <span class="bottom-nav-icon">💊</span>
+          <span class="bottom-nav-label">${t('nav_medicines')}</span>
+        </button>
+        <button class="bottom-nav-item" id="nav-water-btn" data-target=".water-card" title="${t('nav_hydration')}">
+          <span class="bottom-nav-icon">💧</span>
+          <span class="bottom-nav-label">${t('nav_hydration')}</span>
+        </button>
+        <button class="bottom-nav-item" id="nav-vitals-btn" data-target=".quick-actions" title="${t('nav_vitals')}">
+          <span class="bottom-nav-icon">❤️</span>
+          <span class="bottom-nav-label">${t('nav_vitals')}</span>
+        </button>
+        <button class="bottom-nav-item" id="nav-profile-btn" title="${t('nav_profile')}">
+          <span class="bottom-nav-icon">👤</span>
+          <span class="bottom-nav-label">${t('nav_profile')}</span>
+        </button>
+      </nav>
     </div>
     
     <!-- Vitals Modal -->
@@ -799,6 +834,21 @@ function renderApp() {
             </div>
           </div>
 
+          <!-- Section 3: Data Backup & Restore -->
+          <div class="profile-backup-section">
+            <h4 class="profile-backup-title">💾 ${t('backup_section_title')}</h4>
+            <p class="profile-backup-desc">${t('backup_section_desc')}</p>
+            <div class="profile-backup-row">
+              <button type="button" class="profile-backup-btn" id="modal-export-data-btn">
+                💾 ${t('backup_download_btn')}
+              </button>
+              <label class="profile-backup-btn" for="modal-import-file">
+                📁 ${t('backup_restore_btn')}
+              </label>
+              <input type="file" id="modal-import-file" accept=".json" style="display:none;" />
+            </div>
+          </div>
+
           <!-- Bottom Action Buttons -->
           <div class="profile-modal-actions">
             <button type="button" class="btn-secondary" id="close-profile-btn">${t('cancel_btn')}</button>
@@ -886,11 +936,24 @@ function attachEventListeners() {
     renderApp();
   });
 
-  // Export Data
-  document.getElementById('export-data-btn')?.addEventListener('click', exportData);
+  // Profile Modal Backup & Restore
+  document.getElementById('modal-export-data-btn')?.addEventListener('click', exportData);
+  document.getElementById('modal-import-file')?.addEventListener('change', importData);
 
-  // Import Data
-  document.getElementById('import-file')?.addEventListener('change', importData);
+  // Bottom Quick Navigation
+  document.querySelectorAll('.bottom-nav-item[data-target]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const targetSelector = (e.currentTarget as HTMLElement).dataset.target;
+      if (targetSelector) {
+        const targetEl = document.querySelector(targetSelector);
+        targetEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  document.getElementById('nav-profile-btn')?.addEventListener('click', () => {
+    openProfileModal();
+  });
 
   // Empty State Routing Button
   document.getElementById('empty-add-med-btn')?.addEventListener('click', () => {
@@ -944,6 +1007,7 @@ function attachEventListeners() {
       const id = target.dataset.id!;
       const doseIndex = parseInt(target.dataset.doseIndex || '0', 10);
       markMedicineTaken(id, doseIndex);
+      showQuickToast(t('toast_med_success'), '✨');
       renderApp();
     });
   });
@@ -1003,6 +1067,7 @@ function attachEventListeners() {
   // Water Buttons
   document.getElementById('add-water-btn')?.addEventListener('click', () => {
     addWater(250);
+    showQuickToast(t('toast_water_success'), '💧');
     renderApp();
   });
 
