@@ -590,10 +590,10 @@ function renderApp() {
           <div class="form-row">
             <label class="form-label">${t('doses_per_day_label')}
               <select id="med-doses-per-day">
-                <option value="1">1 ${t('dose_1_time')}</option>
-                <option value="2">2 ${t('dose_2_times')}</option>
-                <option value="3">3 ${t('dose_3_times')}</option>
-                <option value="4">4 ${t('dose_4_times')}</option>
+                <option value="1">${t('dose_1_time')}</option>
+                <option value="2">${t('dose_2_times')}</option>
+                <option value="3">${t('dose_3_times')}</option>
+                <option value="4">${t('dose_4_times')}</option>
               </select>
             </label>
             <label class="form-label">${t('frequency_label')}

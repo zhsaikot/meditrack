@@ -502,6 +502,14 @@ html.dark-mode,
     gap: 15px;
     text-align: center;
   }
+  .header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
 }
 
 /* Dashboard refinement */
@@ -535,8 +543,37 @@ html[lang="bn"] button {
 .main-header h1 { color: var(--color-ink); letter-spacing: -0.04em; font-size: 1.85rem; line-height: 1; }
 .subtitle { margin: 6px 0 0; font-size: .86rem; }
 .eyebrow { margin: 0 0 5px; color: currentColor; font-size: .64rem; font-weight: 800; letter-spacing: .14em; opacity: .7; }
-.header-actions { gap: 6px; }
-.icon-btn { border: 1px solid var(--border-color); border-radius: 50%; width: 38px; height: 38px; padding: 0; font-size: 1rem; }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.icon-btn,
+label.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  font-size: 1rem;
+  box-sizing: border-box;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.icon-btn:hover,
+label.icon-btn:hover {
+  background: var(--bg-primary);
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
 .lang-toggle-btn {
   border-radius: 20px;
   width: auto;
