@@ -23,7 +23,8 @@ const DEFAULT_DATA: AppData = {
     hydrationGoal: 2000,
     notificationsEnabled: false,
     reminderTimes: ['09:00', '14:00', '20:00'],
-    theme: 'light'
+    theme: 'light',
+    language: 'en'
   },
   profile: { ...DEFAULT_PROFILE }
 };
@@ -370,5 +371,16 @@ export function setCustomHydrationGoal(goal: number): void {
   if (log) {
     log.goal = validGoal;
   }
+  saveAppData(data);
+}
+
+export function getAppLanguage(): 'en' | 'bn' {
+  const data = getAppData();
+  return data.settings.language || 'en';
+}
+
+export function setAppLanguage(lang: 'en' | 'bn'): void {
+  const data = getAppData();
+  data.settings.language = lang;
   saveAppData(data);
 }

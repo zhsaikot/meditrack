@@ -6,6 +6,15 @@ import { saveAppData, getTodayDateString } from '../storage';
 
 let appData: AppData;
 
+export interface TodayMedicineItem {
+  medicine: Medicine;
+  doseIndex: number;
+  time: string;
+  totalDoses: number;
+  doseLabel?: string;
+  log?: MedicineLog;
+}
+
 export function initMedicineModule(data: AppData): void {
   appData = data;
 }
@@ -15,8 +24,16 @@ export function getMedicines(): Medicine[] {
 }
 
 export function addMedicine(medicine: Omit<Medicine, 'id' | 'createdAt'>): Medicine {
+  const times = (medicine.times && medicine.times.length > 0)
+    ? medicine.times
+    : [medicine.time];
+  const dosesPerDay = medicine.dosesPerDay || times.length;
+
   const newMedicine: Medicine = {
     ...medicine,
+    times,
+    time: times[0] || medicine.time,
+    dosesPerDay,
     id: generateId(),
     createdAt: new Date().toISOString(),
   };
@@ -39,7 +56,7 @@ export function deleteMedicine(id: string): void {
   saveAppData(appData);
 }
 
-export function getTodayMedicineList(): { medicine: Medicine; log?: MedicineLog }[] {
+export function getTodayMedicineList(): TodayMedicineItem[] {
   const today = getTodayDateString();
   
   // Get medicines that should be taken today
@@ -50,17 +67,38 @@ export function getTodayMedicineList(): { medicine: Medicine; log?: MedicineLog 
   // Get today's logs
   const todaysLogs = appData.medicineLogs.filter((log) => log.date === today);
 
-  return todaysMeds.map((medicine) => {
-    const log = todaysLogs.find((log) => log.medicineId === medicine.id);
-    return { medicine, log };
-  });
+  const result: TodayMedicineItem[] = [];
+
+  for (const medicine of todaysMeds) {
+    const times = (medicine.times && medicine.times.length > 0) ? medicine.times : [medicine.time];
+    const totalDoses = times.length;
+
+    times.forEach((timeStr, doseIndex) => {
+      const log = todaysLogs.find(
+        (l) => l.medicineId === medicine.id && (l.doseIndex ?? 0) === doseIndex
+      );
+      result.push({
+        medicine,
+        doseIndex,
+        time: timeStr,
+        totalDoses,
+        doseLabel: totalDoses > 1 ? `Dose ${doseIndex + 1}/${totalDoses}` : undefined,
+        log,
+      });
+    });
+  }
+
+  // Sort chronologically by scheduled time
+  result.sort((a, b) => a.time.localeCompare(b.time));
+
+  return result;
 }
 
-export function markMedicineTaken(medicineId: string): void {
+export function markMedicineTaken(medicineId: string, doseIndex: number = 0): void {
   const today = getTodayDateString();
   
   let log = appData.medicineLogs.find(
-    (log) => log.medicineId === medicineId && log.date === today
+    (log) => log.medicineId === medicineId && log.date === today && (log.doseIndex ?? 0) === doseIndex
   );
 
   const wasTaken = log ? log.taken : false;
@@ -72,6 +110,7 @@ export function markMedicineTaken(medicineId: string): void {
   } else {
     log = {
       medicineId,
+      doseIndex,
       date: today,
       taken: true,
       takenAt: new Date().toISOString(),
@@ -90,11 +129,11 @@ export function markMedicineTaken(medicineId: string): void {
   saveAppData(appData);
 }
 
-export function markMedicineSkipped(medicineId: string): void {
+export function markMedicineSkipped(medicineId: string, doseIndex: number = 0): void {
   const today = getTodayDateString();
   
   let log = appData.medicineLogs.find(
-    (log) => log.medicineId === medicineId && log.date === today
+    (log) => log.medicineId === medicineId && log.date === today && (log.doseIndex ?? 0) === doseIndex
   );
 
   const wasTaken = log ? log.taken : false;
@@ -105,6 +144,7 @@ export function markMedicineSkipped(medicineId: string): void {
   } else {
     log = {
       medicineId,
+      doseIndex,
       date: today,
       taken: false,
       skipped: true,
@@ -123,11 +163,11 @@ export function markMedicineSkipped(medicineId: string): void {
   saveAppData(appData);
 }
 
-export function unmarkMedicine(medicineId: string): void {
+export function unmarkMedicine(medicineId: string, doseIndex: number = 0): void {
   const today = getTodayDateString();
   
   const logIndex = appData.medicineLogs.findIndex(
-    (log) => log.medicineId === medicineId && log.date === today
+    (log) => log.medicineId === medicineId && log.date === today && (log.doseIndex ?? 0) === doseIndex
   );
 
   if (logIndex !== -1) {

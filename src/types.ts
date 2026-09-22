@@ -4,7 +4,9 @@ export interface Medicine {
   id: string;
   name: string;
   dosage: string;
-  time: string;
+  time: string; // primary / first dose time for backwards compatibility
+  times?: string[]; // list of scheduled dose times e.g. ["08:00", "14:00", "20:00"]
+  dosesPerDay?: number; // 1, 2, 3, 4 (defaults to 1)
   taken: boolean;
   frequency: 'daily' | 'weekdays' | 'weekends' | 'custom';
   specificDays: number[]; // For custom frequency (0=Sunday, 1=Monday, etc.)
@@ -15,6 +17,7 @@ export interface Medicine {
 
 export interface MedicineLog {
   medicineId: string;
+  doseIndex?: number; // 0, 1, 2... for multiple daily doses
   date: string;
   taken: boolean;
   skipped?: boolean;
@@ -93,6 +96,7 @@ export interface AppSettings {
   notificationsEnabled: boolean;
   reminderTimes: string[];
   theme: 'light' | 'dark' | 'system';
+  language?: 'en' | 'bn';
 }
 
 export interface AppData {

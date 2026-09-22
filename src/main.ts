@@ -3,7 +3,6 @@ import './style.css'
 import { Medicine, MoodEntry, VitalsLog, SleepLog, Appointment } from './types'
 import { 
   getMedicines, 
-  addMedicine, 
   deleteMedicine,
   getTodayWater, 
   addWater, 
@@ -18,7 +17,9 @@ import {
   getTodayDateString,
   getUserProfile,
   saveUserProfile,
-  setCustomHydrationGoal
+  setCustomHydrationGoal,
+  getAppLanguage,
+  setAppLanguage
 } from './storage'
 import { calculateBMI, renderBMISpectrumSVG } from './modules/profile'
 import { initVitalsModule, addVitalsLog, getLatestVitals, getVitalsAverages } from './modules/vitals'
@@ -28,12 +29,14 @@ import { initHydrationModule, getHydrationGoal, setHydrationGoal } from './modul
 import { 
   initMedicineModule, 
   getTodayMedicineList, 
+  addMedicine,
   markMedicineTaken, 
   markMedicineSkipped, 
   unmarkMedicine, 
   getTodaysProgress,
   refillMedicine,
-  getLowInventoryMedicines
+  getLowInventoryMedicines,
+  TodayMedicineItem
 } from './modules/medicine'
 import { 
   initAppointmentsModule, 
@@ -57,6 +60,7 @@ import {
   calculateCorrelationInsight 
 } from './modules/trends'
 import { printDoctorReport } from './modules/report'
+import { t, setLanguage, formatNumber, Language } from './modules/i18n'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -65,7 +69,16 @@ let appState = {
   currentMood: 0,
   currentSymptoms: [] as string[],
   isDarkMode: false,
-  notificationsEnabled: false
+  notificationsEnabled: false,
+  language: getAppLanguage() as Language
+};
+
+// Default dose time presets based on doses per day
+const defaultTimesByCount: Record<number, string[]> = {
+  1: ['09:00'],
+  2: ['08:00', '20:00'],
+  3: ['08:00', '14:00', '20:00'],
+  4: ['08:00', '12:00', '16:00', '20:00']
 };
 
 // Load saved state
@@ -73,6 +86,8 @@ function loadAppState() {
   const data = getAppData();
   appState.isDarkMode = data.settings.theme === 'dark';
   appState.notificationsEnabled = data.settings.notificationsEnabled || false;
+  appState.language = getAppLanguage();
+  setLanguage(appState.language);
 
   if (appState.isDarkMode) {
     document.documentElement.classList.add('dark-mode');
@@ -101,10 +116,10 @@ function loadAppState() {
       const list = getTodayMedicineList();
       return list
         .filter(({ log }) => !log?.taken && !log?.skipped)
-        .map(({ medicine }) => ({
+        .map(({ medicine, time }) => ({
           name: medicine.name,
           dosage: medicine.dosage,
-          time: medicine.time
+          time: time
         }));
     });
   }
@@ -114,7 +129,29 @@ function saveAppState() {
   const data = getAppData();
   data.settings.theme = appState.isDarkMode ? 'dark' : 'light';
   data.settings.notificationsEnabled = appState.notificationsEnabled;
+  data.settings.language = appState.language;
+  setAppLanguage(appState.language);
   saveAppData(data);
+}
+
+// Dynamically render time pickers in Add Medicine Form
+function renderDoseTimeInputs(count: number, existingTimes: string[] = []) {
+  const container = document.getElementById('dose-times-container');
+  if (!container) return;
+  const defaults = defaultTimesByCount[count] || ['09:00'];
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const val = existingTimes[i] || defaults[i] || '09:00';
+    const label = count > 1 
+      ? t('dose_num_label', { num: formatNumber(i + 1) })
+      : t('dose_time_label');
+    html += `
+      <label class="form-label">${label}
+        <input type="time" class="med-dose-time" required value="${val}" />
+      </label>
+    `;
+  }
+  container.innerHTML = `<div class="dose-times-grid">${html}</div>`;
 }
 
 function renderApp() {
@@ -143,9 +180,9 @@ function renderApp() {
   const todaysMedList = getTodayMedicineList();
   const nextMedicine = todaysMedList
     .filter(({ log }) => !log?.taken && !log?.skipped)
-    .sort((a, b) => a.medicine.time.localeCompare(b.medicine.time))[0];
+    .sort((a, b) => a.time.localeCompare(b.time))[0];
   const latestMood = moodEntries[0];
-  const todayLabel = new Intl.DateTimeFormat('en-US', {
+  const todayLabel = new Intl.DateTimeFormat(appState.language === 'bn' ? 'bn-BD' : 'en-US', {
     weekday: 'long', month: 'long', day: 'numeric'
   }).format(new Date());
   
@@ -162,32 +199,36 @@ function renderApp() {
     data.moodEntries
   );
 
-  const medicineListHTML = todaysMedList.map(({ medicine, log }) => `
-    <div class="medicine-item ${log?.taken ? 'taken' : log?.skipped ? 'skipped' : ''}">
-      <div class="med-info">
-        <div class="med-title-row">
-          <strong>${escapeHtml(medicine.name)}</strong>
-          <span class="dosage">(${escapeHtml(medicine.dosage)})</span>
-        </div>
-        <div class="time">🕐 ${formatTime(medicine.time)}${nextMedicine?.medicine.id === medicine.id && !log?.taken && !log?.skipped ? ' · <span class="next-tag">Next Up</span>' : ''}</div>
-        ${medicine.inventory <= 5 ? `
-          <div class="low-stock">
-            <span>⚠️ Low supply: ${medicine.inventory} dose${medicine.inventory === 1 ? '' : 's'} left</span>
-            <button class="refill-btn" data-id="${medicine.id}" title="Restock 30 doses">+30 Refill</button>
+  const medicineListHTML = todaysMedList.map(({ medicine, doseIndex, time, totalDoses, log }) => {
+    const isNext = nextMedicine && nextMedicine.medicine.id === medicine.id && nextMedicine.doseIndex === doseIndex && !log?.taken && !log?.skipped;
+    return `
+      <div class="medicine-item ${log?.taken ? 'taken' : log?.skipped ? 'skipped' : ''}">
+        <div class="med-info">
+          <div class="med-title-row">
+            <strong>${escapeHtml(medicine.name)}</strong>
+            <span class="dosage">(${escapeHtml(medicine.dosage)})</span>
+            ${totalDoses > 1 ? `<span class="dose-badge-pill">${t('dose_tag', { index: formatNumber(doseIndex + 1), total: formatNumber(totalDoses) })}</span>` : ''}
           </div>
-        ` : ''}
+          <div class="time">🕐 ${formatTime(time)}${isNext ? ` · <span class="next-tag">${t('next_up_badge')}</span>` : ''}</div>
+          ${medicine.inventory <= 5 ? `
+            <div class="low-stock">
+              <span>${t('low_supply_warn', { count: formatNumber(medicine.inventory), plural: medicine.inventory === 1 ? '' : 's' })}</span>
+              <button class="refill-btn" data-id="${medicine.id}" title="${t('restock_btn')}">${t('restock_btn')}</button>
+            </div>
+          ` : ''}
+        </div>
+        <div class="med-actions">
+          ${!log?.taken && !log?.skipped ? `
+            <button class="action-btn take-btn" data-id="${medicine.id}" data-dose-index="${doseIndex}" title="${t('take_btn_title')}" aria-label="${t('take_btn_title')}">✓</button>
+            <button class="action-btn skip-btn" data-id="${medicine.id}" data-dose-index="${doseIndex}" title="${t('skip_btn_title')}" aria-label="${t('skip_btn_title')}">⊘</button>
+          ` : `
+            <button class="action-btn undo-btn" data-id="${medicine.id}" data-dose-index="${doseIndex}" title="${t('undo_btn_title')}" aria-label="${t('undo_btn_title')}">↩</button>
+          `}
+          <button class="delete-btn" data-id="${medicine.id}" title="${t('delete_btn_title')}" aria-label="${t('delete_btn_title')}">🗑️</button>
+        </div>
       </div>
-      <div class="med-actions">
-        ${!log?.taken && !log?.skipped ? `
-          <button class="action-btn take-btn" data-id="${medicine.id}" title="Mark as taken" aria-label="Mark as taken">✓</button>
-          <button class="action-btn skip-btn" data-id="${medicine.id}" title="Skip today" aria-label="Skip today">⊘</button>
-        ` : `
-          <button class="action-btn undo-btn" data-id="${medicine.id}" title="Undo" aria-label="Undo">↩</button>
-        `}
-        <button class="delete-btn" data-id="${medicine.id}" title="Delete medicine" aria-label="Delete medicine">🗑️</button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   const appointmentListHTML = upcomingAppts.map(appt => {
     const display = formatAppointmentDisplay(appt);
@@ -196,27 +237,37 @@ function renderApp() {
         <div class="appt-info">
           <div class="appt-title-row">
             <strong>${escapeHtml(appt.title)}</strong>
-            <span class="appt-doctor">with ${escapeHtml(appt.doctor)}</span>
+            <span class="appt-doctor">${t('with_doctor', { doctor: escapeHtml(appt.doctor) })}</span>
           </div>
           <div class="appt-meta">📅 ${display.dateDisplay} at ${display.timeDisplay} ${appt.location ? `· 📍 ${escapeHtml(appt.location)}` : ''}</div>
         </div>
         <div class="appt-actions">
           <span class="countdown-badge">${display.countdown}</span>
-          <button class="delete-appt-btn" data-id="${appt.id}" title="Delete appointment" aria-label="Delete appointment">🗑️</button>
+          <button class="delete-appt-btn" data-id="${appt.id}" title="${t('delete_appt_title')}" aria-label="${t('delete_appt_title')}">🗑️</button>
         </div>
       </div>
     `;
   }).join('');
 
   const moodEmojis = [
-    { val: 1, icon: '😫', label: 'Terrible' },
-    { val: 2, icon: '😕', label: 'Bad' },
-    { val: 3, icon: '😐', label: 'Okay' },
-    { val: 4, icon: '🙂', label: 'Good' },
-    { val: 5, icon: '😄', label: 'Great' }
+    { val: 1, icon: '😫', label: t('mood_terrible') },
+    { val: 2, icon: '😕', label: t('mood_bad') },
+    { val: 3, icon: '😐', label: t('mood_okay') },
+    { val: 4, icon: '🙂', label: t('mood_good') },
+    { val: 5, icon: '😄', label: t('mood_great') }
   ];
 
-  const symptomsList = ['Headache', 'Fatigue', 'Nausea', 'Pain', 'Anxiety', 'Dizziness', 'Stress', 'Insomnia'];
+  const symptomsList = [
+    { id: 'Headache', label: t('symptom_headache') },
+    { id: 'Fatigue', label: t('symptom_fatigue') },
+    { id: 'Nausea', label: t('symptom_nausea') },
+    { id: 'Pain', label: t('symptom_pain') },
+    { id: 'Anxiety', label: t('symptom_anxiety') },
+    { id: 'Dizziness', label: t('symptom_dizziness') },
+    { id: 'Stress', label: t('symptom_stress') },
+    { id: 'Insomnia', label: t('symptom_insomnia') },
+  ];
+
   const todayMood = getTodayMood();
   const notesValue = todayMood ? todayMood.notes : '';
 
@@ -225,7 +276,40 @@ function renderApp() {
   const userHeight = profile.heightCm || 170;
   const bmiResult = calculateBMI(userWeight, userHeight);
   const firstName = profile.name?.trim() ? profile.name.trim().split(' ')[0] : '';
-  const greetingEyebrow = firstName ? `GOOD TO SEE YOU, ${escapeHtml(firstName.toUpperCase())}` : 'GOOD TO SEE YOU';
+  const greetingEyebrow = firstName ? t('welcome_back', { name: escapeHtml(firstName.toUpperCase()) }) : t('good_to_see_you');
+
+  // BMI Category & Advice localization
+  const bmiCategoryMap: Record<string, string> = {
+    'Underweight': t('underweight'),
+    'Normal weight': t('normal_weight'),
+    'Overweight': t('overweight'),
+    'Obese': t('obese')
+  };
+  const localizedCategory = bmiCategoryMap[bmiResult.category] || bmiResult.category;
+
+  let localizedAdvice = bmiResult.advice;
+  if (bmiResult.bmi > 0) {
+    if (bmiResult.bmi < 18.5) {
+      localizedAdvice = t('advice_underweight', {
+        min: formatNumber(bmiResult.minHealthyWeight),
+        max: formatNumber(bmiResult.maxHealthyWeight)
+      });
+    } else if (bmiResult.bmi <= 24.9) {
+      localizedAdvice = t('advice_normal', {
+        min: formatNumber(bmiResult.minHealthyWeight),
+        max: formatNumber(bmiResult.maxHealthyWeight)
+      });
+    } else if (bmiResult.bmi <= 29.9) {
+      const diff = Math.round((userWeight - bmiResult.maxHealthyWeight) * 10) / 10;
+      localizedAdvice = t('advice_overweight', {
+        diff: formatNumber(diff),
+        min: formatNumber(bmiResult.minHealthyWeight),
+        max: formatNumber(bmiResult.maxHealthyWeight)
+      });
+    } else {
+      localizedAdvice = t('advice_obese');
+    }
+  }
 
   app.innerHTML = `
     <div class="container">
@@ -233,28 +317,31 @@ function renderApp() {
         <div class="brand-lockup">
           <div class="brand-mark">✚</div>
           <div>
-            <p class="eyebrow">PERSONAL HEALTH DASHBOARD</p>
-            <h1>MediTrack</h1>
-            <p class="subtitle">Your complete, private health companion</p>
+            <p class="eyebrow">${t('brand_eyebrow')}</p>
+            <h1>${t('brand_name')}</h1>
+            <p class="subtitle">${t('brand_subtitle')}</p>
           </div>
         </div>
         <div class="header-actions">
-          <button class="profile-avatar-btn" id="open-profile-btn" title="Open Profile & Settings" aria-label="Open Profile & Settings">
+          <button class="lang-toggle-btn" id="toggle-lang-btn" title="${t('switch_language')}" aria-label="${t('switch_language')}">
+            <span class="lang-badge">${appState.language === 'bn' ? 'বাং' : 'EN'}</span>
+          </button>
+          <button class="profile-avatar-btn" id="open-profile-btn" title="${t('profile_btn_title')}" aria-label="${t('profile_btn_title')}">
             ${profile.avatarUrl ? `
               <img src="${profile.avatarUrl}" alt="${escapeHtml(profile.name || 'User')}" class="profile-avatar-img" />
             ` : `
               <span class="profile-avatar-fallback">${firstName ? escapeHtml(firstName[0]) : '👤'}</span>
             `}
           </button>
-          <button class="icon-btn ${appState.notificationsEnabled ? 'notification-bell active' : 'notification-bell'}" id="toggle-notifications-btn" title="${appState.notificationsEnabled ? 'Reminders Active' : 'Enable Reminders'}">
+          <button class="icon-btn ${appState.notificationsEnabled ? 'notification-bell active' : 'notification-bell'}" id="toggle-notifications-btn" title="${appState.notificationsEnabled ? t('reminders_active') : t('enable_reminders')}">
             ${appState.notificationsEnabled ? '🔔' : '🔕'}
           </button>
-          <button class="icon-btn" id="doctor-report-btn" title="Print Doctor Health Report">📋</button>
-          <button class="icon-btn" id="toggle-theme-btn" title="Toggle Dark Mode">
+          <button class="icon-btn" id="doctor-report-btn" title="${t('doctor_report_title')}">📋</button>
+          <button class="icon-btn" id="toggle-theme-btn" title="${t('toggle_theme_title')}">
             ${appState.isDarkMode ? '☀️' : '🌙'}
           </button>
-          <button class="icon-btn" id="export-data-btn" title="Export Backup (JSON)">💾</button>
-          <label class="icon-btn" for="import-file" title="Import Backup (JSON)">📁</label>
+          <button class="icon-btn" id="export-data-btn" title="${t('export_backup_title')}">💾</button>
+          <label class="icon-btn" for="import-file" title="${t('import_backup_title')}">📁</label>
           <input type="file" id="import-file" accept=".json" style="display:none" />
         </div>
       </header>
@@ -268,34 +355,34 @@ function renderApp() {
       <section class="welcome-panel">
         <div>
           <p class="eyebrow">${greetingEyebrow}</p>
-          <h2>${firstName ? `Welcome back, ${escapeHtml(firstName)}.` : 'Take the day one small step at a time.'}</h2>
-          <p>${nextMedicine ? `Next up: <strong>${escapeHtml(nextMedicine.medicine.name)}</strong> at ${formatTime(nextMedicine.medicine.time)}.` : 'Your medication schedule is clear for today.'}${nextAppt ? `<br>📅 <strong>${escapeHtml(nextAppt.title)}</strong> with ${escapeHtml(nextAppt.doctor)} (${formatAppointmentDisplay(nextAppt).countdown})` : ''}</p>
+          <h2>${firstName ? t('welcome_back', { name: escapeHtml(firstName) }) : t('take_day_step')}</h2>
+          <p>${nextMedicine ? `${t('next_up_prefix')}<strong>${escapeHtml(nextMedicine.medicine.name)}</strong>${nextMedicine.totalDoses > 1 ? ` (${t('dose_tag', { index: formatNumber(nextMedicine.doseIndex + 1), total: formatNumber(nextMedicine.totalDoses) })})` : ''} ${t('at_time')} ${formatTime(nextMedicine.time)}.` : t('schedule_clear')}${nextAppt ? `<br>📅 <strong>${escapeHtml(nextAppt.title)}</strong> ${t('with_doctor', { doctor: escapeHtml(nextAppt.doctor) })} (${formatAppointmentDisplay(nextAppt).countdown})` : ''}</p>
         </div>
         <div class="welcome-orbit" aria-hidden="true"><span>✦</span></div>
       </section>
 
-      <!-- Statistics Card with Gamified Milestones -->
+      <!-- Statistics Card (2x2 Grid Layout) -->
       <section class="card stats-card">
         <div class="section-heading light-heading">
-          <div><p class="eyebrow">AT A GLANCE</p><h2>Today's overview</h2></div>
-          <span class="section-kicker">LIVE</span>
+          <div><p class="eyebrow">${t('overview_eyebrow')}</p><h2>${t('overview_title')}</h2></div>
+          <span class="section-kicker">${t('live_badge')}</span>
         </div>
         <div class="stats-grid">
           <div class="stat-item">
-            <div class="stat-value">${adherenceRate}%</div>
-            <div class="stat-label">Medicine Adherence</div>
+            <div class="stat-value">${formatNumber(adherenceRate)}%</div>
+            <div class="stat-label">${t('stat_adherence')}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">${waterAmount}ml</div>
-            <div class="stat-label">Water Intake</div>
+            <div class="stat-value">${formatNumber(waterAmount)}${t('ml_unit')}</div>
+            <div class="stat-label">${t('stat_water')}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">${sleepAvg.avgDuration !== null ? sleepAvg.avgDuration + 'h' : '--'}</div>
-            <div class="stat-label">Avg Sleep</div>
+            <div class="stat-value">${sleepAvg.avgDuration !== null ? formatNumber(sleepAvg.avgDuration) + t('hours_unit') : '--'}</div>
+            <div class="stat-label">${t('stat_sleep')}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-value">${streakDays} days</div>
-            <div class="stat-label">Check-in Streak</div>
+            <div class="stat-value">${formatNumber(streakDays)} ${t('days_unit')}</div>
+            <div class="stat-label">${t('stat_streak')}</div>
           </div>
         </div>
 
@@ -318,78 +405,78 @@ function renderApp() {
       <!-- Quick Actions Bar -->
       <section class="card quick-actions">
         <div class="section-heading">
-          <div><p class="eyebrow">QUICK LOG</p><h2>Record vitals, sleep & visits</h2></div>
+          <div><p class="eyebrow">${t('quick_log_eyebrow')}</p><h2>${t('quick_log_title')}</h2></div>
         </div>
         <div class="quick-grid">
-          <button class="quick-btn" id="show-vitals-btn">❤️ Log Vitals</button>
-          <button class="quick-btn" id="show-sleep-btn">😴 Log Sleep</button>
-          <button class="quick-btn" id="show-appointment-btn">📅 Add Visit</button>
+          <button class="quick-btn" id="show-vitals-btn">${t('log_vitals_btn')}</button>
+          <button class="quick-btn" id="show-sleep-btn">${t('log_sleep_btn')}</button>
+          <button class="quick-btn" id="show-appointment-btn">${t('add_visit_btn')}</button>
         </div>
       </section>
 
       <!-- Harmonized Hydration Tracker -->
       <section class="card water-card">
         <div class="section-heading">
-          <div><p class="eyebrow">BODY RHYTHM</p><h2>Hydration</h2></div>
+          <div><p class="eyebrow">${t('hydration_eyebrow')}</p><h2>${t('hydration_title')}</h2></div>
           <div style="display:flex; align-items:center; gap:8px;">
-            <button class="goal-setting-btn" id="edit-water-goal-btn" title="Customize daily water goal">⚙️ ${hydrationGoal}ml Goal</button>
+            <button class="goal-setting-btn" id="edit-water-goal-btn" title="Customize daily water goal">⚙️ ${formatNumber(hydrationGoal)}${t('ml_unit')} Goal</button>
             <span class="water-icon">💧</span>
           </div>
         </div>
-        <p class="card-intro">Small sips add up. You are ${waterAmount >= hydrationGoal ? 'at your daily goal! 🎉' : `${hydrationGoal - waterAmount}ml from your goal`}.</p>
+        <p class="card-intro">${waterAmount >= hydrationGoal ? t('water_intro_at_goal') : t('water_intro_remaining', { remaining: formatNumber(hydrationGoal - waterAmount) })}</p>
         <div class="water-progress">
           <div class="progress-bar" style="width: ${waterProgress}%"></div>
         </div>
         <div class="water-stats">
-          <span>${waterAmount}ml / ${hydrationGoal}ml</span>
-          <span>${Math.round(waterProgress)}%</span>
+          <span>${formatNumber(waterAmount)}${t('ml_unit')} / ${formatNumber(hydrationGoal)}${t('ml_unit')}</span>
+          <span>${formatNumber(Math.round(waterProgress))}%</span>
         </div>
         <div class="water-actions">
-          <button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">−</button>
-          <button class="btn-water" id="add-water-btn">Add 250ml <span>+</span></button>
+          <button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">${t('remove_250ml')}</button>
+          <button class="btn-water" id="add-water-btn">${t('add_250ml')} <span>+</span></button>
         </div>
       </section>
 
       <!-- Body Mass Index (BMI) & Biometrics Card -->
       <section class="card bmi-card">
         <div class="section-heading">
-          <div><p class="eyebrow" style="color: ${bmiResult.color}">BODY COMPOSITION</p><h2>Body Mass Index (BMI)</h2></div>
-          <span class="bmi-badge" style="background: ${bmiResult.badgeBg}; color: ${bmiResult.color}">● ${bmiResult.category}</span>
+          <div><p class="eyebrow" style="color: ${bmiResult.color}">${t('bmi_eyebrow')}</p><h2>${t('bmi_title')}</h2></div>
+          <span class="bmi-badge" style="background: ${bmiResult.badgeBg}; color: ${bmiResult.color}">● ${localizedCategory}</span>
         </div>
         
         <div class="bmi-grid">
           <div class="bmi-stat-box">
-            <span class="bmi-stat-label">Current BMI</span>
-            <span class="bmi-stat-num" style="color: ${bmiResult.color}">${bmiResult.bmi || '--'}</span>
-            <span class="bmi-stat-sub">Target: 18.5 – 24.9</span>
+            <span class="bmi-stat-label">${t('current_bmi')}</span>
+            <span class="bmi-stat-num" style="color: ${bmiResult.color}">${formatNumber(bmiResult.bmi || '--')}</span>
+            <span class="bmi-stat-sub">${t('target_bmi_range')}</span>
           </div>
           <div class="bmi-stat-box">
-            <span class="bmi-stat-label">Recorded Weight</span>
-            <span class="bmi-stat-num">${userWeight} <span style="font-size:0.9rem; font-weight:600;">kg</span></span>
-            <span class="bmi-stat-sub">Height: ${userHeight} cm</span>
+            <span class="bmi-stat-label">${t('recorded_weight')}</span>
+            <span class="bmi-stat-num">${formatNumber(userWeight)} <span style="font-size:0.9rem; font-weight:600;">kg</span></span>
+            <span class="bmi-stat-sub">${t('height_prefix', { height: formatNumber(userHeight) })}</span>
           </div>
           <div class="bmi-stat-box">
-            <span class="bmi-stat-label">Healthy Weight Range</span>
-            <span class="bmi-stat-num" style="font-size: 1.25rem;">${bmiResult.minHealthyWeight}–${bmiResult.maxHealthyWeight} <span style="font-size:0.85rem; font-weight:600;">kg</span></span>
-            <span class="bmi-stat-sub">WHO standard scale</span>
+            <span class="bmi-stat-label">${t('healthy_weight_range')}</span>
+            <span class="bmi-stat-num" style="font-size: 1.25rem;">${formatNumber(bmiResult.minHealthyWeight)}–${formatNumber(bmiResult.maxHealthyWeight)} <span style="font-size:0.85rem; font-weight:600;">kg</span></span>
+            <span class="bmi-stat-sub">${t('who_standard')}</span>
           </div>
         </div>
 
         ${renderBMISpectrumSVG(bmiResult.bmi)}
 
         <div class="bmi-advice-box">
-          <span>💡 ${escapeHtml(bmiResult.advice)}</span>
-          <button class="bmi-edit-link" id="bmi-update-metrics-btn">Edit Profile</button>
+          <span>💡 ${escapeHtml(localizedAdvice)}</span>
+          <button class="bmi-edit-link" id="bmi-update-metrics-btn">${t('edit_profile_btn')}</button>
         </div>
       </section>
 
       <!-- Mood & Symptom Journal -->
       <section class="card mood-card">
         <div class="section-heading">
-          <div><p class="eyebrow">MENTAL CHECK-IN</p><h2>How are you feeling?</h2></div>
+          <div><p class="eyebrow">${t('mental_eyebrow')}</p><h2>${t('mental_title')}</h2></div>
           <span class="section-icon">☼</span>
         </div>
-        <p class="mood-prompt">Rate your mood today:</p>
+        <p class="mood-prompt">${t('rate_mood_prompt')}</p>
         <div class="emoji-grid">
           ${moodEmojis.map(e => `
             <button class="emoji-btn ${appState.currentMood === e.val ? 'selected' : ''}" data-mood="${e.val}">
@@ -399,43 +486,43 @@ function renderApp() {
           `).join('')}
         </div>
 
-        <p class="mood-prompt">Any symptoms?</p>
+        <p class="mood-prompt">${t('any_symptoms_prompt')}</p>
         <div class="symptom-grid">
           ${symptomsList.map(s => {
-            const isSelected = appState.currentSymptoms.includes(s);
+            const isSelected = appState.currentSymptoms.includes(s.id);
             return `
-              <button class="symptom-btn ${isSelected ? 'selected' : ''}" data-symptom="${s}">
-                ${isSelected ? '✓ ' : ''}${s}
+              <button class="symptom-btn ${isSelected ? 'selected' : ''}" data-symptom="${s.id}">
+                ${isSelected ? '✓ ' : ''}${s.label}
               </button>
             `;
           }).join('')}
         </div>
 
-        <textarea id="mood-notes" placeholder="Add journal notes or how you're feeling..." rows="3">${escapeHtml(notesValue)}</textarea>
-        <button class="btn-primary" id="save-mood-btn">Save today's check-in <span>→</span></button>
+        <textarea id="mood-notes" placeholder="${t('journal_placeholder')}" rows="3">${escapeHtml(notesValue)}</textarea>
+        <button class="btn-primary" id="save-mood-btn">${t('save_checkin_btn')} <span>→</span></button>
       </section>
 
       <!-- Weekly Trends & Correlations -->
       <section class="card trends-card">
         <div class="section-heading">
-          <div><p class="eyebrow">WEEKLY REVIEW</p><h2>Behavioral Trends</h2></div>
+          <div><p class="eyebrow">${t('trends_eyebrow')}</p><h2>${t('trends_title')}</h2></div>
           <span class="section-icon">📈</span>
         </div>
 
         <div class="trend-chart-container">
           <div class="trend-chart-header">
-            <span>Hydration vs Goal (Last 7 Days)</span>
-            <span class="trend-legend"><span class="legend-item"><span class="legend-color" style="background:#0D9488"></span> Goal Met</span></span>
+            <span>${t('chart_hydration_title')}</span>
+            <span class="trend-legend"><span class="legend-item"><span class="legend-color" style="background:#0D9488"></span> ${t('chart_goal_met')}</span></span>
           </div>
           ${renderHydrationChartSVG(data.hydrationLogs, hydrationGoal)}
         </div>
 
         <div class="trend-chart-container">
           <div class="trend-chart-header">
-            <span>Mood & Sleep Duration</span>
+            <span>${t('chart_med_sleep_title')}</span>
             <div class="trend-legend">
-              <span class="legend-item"><span class="legend-color" style="background:#8B5CF6"></span> Mood (1-5★)</span>
-              <span class="legend-item"><span class="legend-color" style="background:#3B82F6"></span> Sleep (hrs)</span>
+              <span class="legend-item"><span class="legend-color" style="background:#8B5CF6"></span> ${t('chart_legend_med')}</span>
+              <span class="legend-item"><span class="legend-color" style="background:#3B82F6"></span> ${t('chart_legend_sleep')}</span>
             </div>
           </div>
           ${renderMoodSleepChartSVG(data.moodEntries, data.sleepLogs)}
@@ -450,14 +537,14 @@ function renderApp() {
       ${latestVitals ? `
       <section class="card vitals-display">
         <div class="section-heading">
-          <div><p class="eyebrow">LATEST VITALS</p><h2>Recent readings</h2></div>
+          <div><p class="eyebrow">${t('vitals_eyebrow')}</p><h2>${t('vitals_title')}</h2></div>
           <span class="section-icon">❤️</span>
         </div>
         <div class="vitals-grid">
-          ${latestVitals.heartRate ? `<div class="vital-item"><span class="vital-label">Heart Rate</span><span class="vital-value">${latestVitals.heartRate} bpm</span></div>` : ''}
-          ${latestVitals.bloodPressure ? `<div class="vital-item"><span class="vital-label">Blood Pressure</span><span class="vital-value">${latestVitals.bloodPressure.systolic}/${latestVitals.bloodPressure.diastolic} mmHg</span></div>` : ''}
-          ${latestVitals.weight ? `<div class="vital-item"><span class="vital-label">Weight</span><span class="vital-value">${latestVitals.weight} kg</span></div>` : ''}
-          ${latestVitals.temperature ? `<div class="vital-item"><span class="vital-label">Temperature</span><span class="vital-value">${latestVitals.temperature}°C</span></div>` : ''}
+          ${latestVitals.heartRate ? `<div class="vital-item"><span class="vital-label">${t('heart_rate_label')}</span><span class="vital-value">${formatNumber(latestVitals.heartRate)} bpm</span></div>` : ''}
+          ${latestVitals.bloodPressure ? `<div class="vital-item"><span class="vital-label">${t('blood_pressure_label')}</span><span class="vital-value">${formatNumber(latestVitals.bloodPressure.systolic)}/${formatNumber(latestVitals.bloodPressure.diastolic)} mmHg</span></div>` : ''}
+          ${latestVitals.weight ? `<div class="vital-item"><span class="vital-label">${t('weight_modal_label')}</span><span class="vital-value">${formatNumber(latestVitals.weight)} kg</span></div>` : ''}
+          ${latestVitals.temperature ? `<div class="vital-item"><span class="vital-label">${t('temperature_label')}</span><span class="vital-value">${formatNumber(latestVitals.temperature)}°C</span></div>` : ''}
         </div>
       </section>
       ` : ''}
@@ -466,66 +553,81 @@ function renderApp() {
       ${latestSleep ? `
       <section class="card sleep-display">
         <div class="section-heading">
-          <div><p class="eyebrow">LAST NIGHT'S SLEEP</p><h2>Sleep summary</h2></div>
+          <div><p class="eyebrow">${t('sleep_eyebrow')}</p><h2>${t('sleep_title')}</h2></div>
           <span class="section-icon">🌙</span>
         </div>
         <div class="sleep-summary">
-          <div class="sleep-stat"><span class="sleep-value">${latestSleep.duration}h</span><span class="sleep-label">Duration</span></div>
-          <div class="sleep-stat"><span class="sleep-value">${'⭐'.repeat(latestSleep.quality)}${'☆'.repeat(5 - latestSleep.quality)}</span><span class="sleep-label">Quality</span></div>
-          <div class="sleep-stat"><span class="sleep-value">${formatTime(latestSleep.bedtime)} - ${formatTime(latestSleep.wakeTime)}</span><span class="sleep-label">Schedule</span></div>
+          <div class="sleep-stat"><span class="sleep-value">${formatNumber(latestSleep.duration)}${t('hours_unit')}</span><span class="sleep-label">${t('duration_label')}</span></div>
+          <div class="sleep-stat"><span class="sleep-value">${'⭐'.repeat(latestSleep.quality)}${'☆'.repeat(5 - latestSleep.quality)}</span><span class="sleep-label">${t('quality_label')}</span></div>
+          <div class="sleep-stat"><span class="sleep-value">${formatTime(latestSleep.bedtime)} - ${formatTime(latestSleep.wakeTime)}</span><span class="sleep-label">${t('schedule_label')}</span></div>
         </div>
       </section>
       ` : ''}
 
       <section class="insight-row">
         <div class="card insight-card">
-          <p class="eyebrow">RECENT NOTE</p>
-          <h3>${latestMood ? `${escapeHtml(latestMood.notes) || 'Checked in today.'}` : 'Your journal is ready when you are.'}</h3>
-          <p class="muted-copy">${latestMood ? `${latestMood.symptoms.length ? latestMood.symptoms.map(escapeHtml).join(' · ') : 'No symptoms logged'} · Mood ${latestMood.mood}/5` : 'A short check-in helps spot patterns over time.'}</p>
+          <p class="eyebrow">${t('recent_note_eyebrow')}</p>
+          <h3>${latestMood ? `${escapeHtml(latestMood.notes) || t('checked_in_today')}` : t('journal_ready')}</h3>
+          <p class="muted-copy">${latestMood ? `${latestMood.symptoms.length ? latestMood.symptoms.map(escapeHtml).join(' · ') : t('no_symptoms_logged')} · ${t('mood_label', { val: formatNumber(latestMood.mood) })}` : t('consistency_starts')}</p>
         </div>
         <div class="card insight-card accent-insight">
-          <p class="eyebrow">TODAY'S FOCUS</p>
-          <h3>${medProgress.total === 0 ? 'Build your routine' : adherenceRate === 100 ? 'All medicines taken! ✨' : `${medProgress.total - medProgress.taken} medicine${medProgress.total - medProgress.taken === 1 ? '' : 's'} remaining`}</h3>
-          <p class="muted-copy">${streakDays > 1 ? `${streakDays} days of consistent check-ins.` : 'Consistency starts with one step.'}</p>
+          <p class="eyebrow">${t('todays_focus_eyebrow')}</p>
+          <h3>${medProgress.total === 0 ? t('build_routine') : adherenceRate === 100 ? t('all_meds_taken') : t('meds_remaining', { count: formatNumber(medProgress.total - medProgress.taken), plural: (medProgress.total - medProgress.taken === 1 ? '' : 's') })}</h3>
+          <p class="muted-copy">${streakDays > 1 ? t('streak_progress', { count: formatNumber(streakDays) }) : t('consistency_starts')}</p>
         </div>
       </section>
 
-      <!-- Medicine Section -->
+      <!-- Medicine Section (Add Medicine Form with Doses per day) -->
       <section class="card add-med-card">
         <div class="section-heading">
-          <div><p class="eyebrow">YOUR ROUTINE</p><h2>Add a medicine</h2></div>
+          <div><p class="eyebrow">${t('routine_eyebrow')}</p><h2>${t('routine_title')}</h2></div>
           <span class="section-icon">＋</span>
         </div>
         <form id="add-med-form">
-          <input type="text" id="med-name" placeholder="Medicine Name (e.g., Metformin)" required />
-          <input type="text" id="med-dosage" placeholder="Dosage (e.g., 500mg)" required />
-          <label class="form-label">Dose Time: <input type="time" id="med-time" required value="09:00" /></label>
+          <input type="text" id="med-name" placeholder="${t('med_name_ph')}" required />
+          <input type="text" id="med-dosage" placeholder="${t('med_dosage_ph')}" required />
+          
           <div class="form-row">
-            <label class="form-label">Frequency:
-              <select id="med-frequency">
-                <option value="daily">Daily</option>
-                <option value="weekdays">Weekdays only</option>
-                <option value="weekends">Weekends only</option>
+            <label class="form-label">${t('doses_per_day_label')}
+              <select id="med-doses-per-day">
+                <option value="1">1 ${t('dose_1_time')}</option>
+                <option value="2">2 ${t('dose_2_times')}</option>
+                <option value="3">3 ${t('dose_3_times')}</option>
+                <option value="4">4 ${t('dose_4_times')}</option>
               </select>
             </label>
-            <label class="form-label">Initial Supply:
-              <input type="number" id="med-inventory" placeholder="Pills left" min="0" value="30" />
+            <label class="form-label">${t('frequency_label')}
+              <select id="med-frequency">
+                <option value="daily">${t('freq_daily')}</option>
+                <option value="weekdays">${t('freq_weekdays')}</option>
+                <option value="weekends">${t('freq_weekends')}</option>
+              </select>
             </label>
           </div>
-          <button type="submit" class="btn-primary">Add Medicine</button>
+
+          <div id="dose-times-container">
+            <!-- Dynamic dose time pickers rendered here -->
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">${t('initial_supply_label')}
+              <input type="number" id="med-inventory" placeholder="${t('pills_left_ph')}" min="0" value="30" />
+            </label>
+          </div>
+          <button type="submit" class="btn-primary">${t('add_medicine_btn')}</button>
         </form>
       </section>
 
       <!-- Medicine Schedule Card with Empty State Routing -->
       <section class="card list-card" id="medicine-schedule-section">
         <div class="section-heading">
-          <div><p class="eyebrow">SCHEDULE</p><h2>Today's medicines</h2></div>
-          <span class="progress-pill">${medProgress.taken} / ${medProgress.total} taken</span>
+          <div><p class="eyebrow">${t('schedule_eyebrow')}</p><h2>${t('schedule_title')}</h2></div>
+          <span class="progress-pill">${t('taken_badge', { taken: formatNumber(medProgress.taken), total: formatNumber(medProgress.total) })}</span>
         </div>
 
         ${lowInventoryMeds.length > 0 ? `
           <div class="refill-alert-banner">
-            <span>⚠️ Refill Alert: <strong>${lowInventoryMeds.length} medication${lowInventoryMeds.length > 1 ? 's have' : ' has'}</strong> 5 or fewer doses remaining.</span>
+            <span>${t('refill_alert_banner', { count: formatNumber(lowInventoryMeds.length), plural: lowInventoryMeds.length > 1 ? 's have' : ' has' })}</span>
           </div>
         ` : ''}
 
@@ -533,9 +635,9 @@ function renderApp() {
           ${todaysMedList.length === 0 ? `
             <div class="empty-state-box">
               <div class="empty-state-icon">💊</div>
-              <h3 class="empty-state-title">No medicines scheduled for today</h3>
-              <p class="empty-state-desc">Stay on track with your prescription regimen. Add your daily medications or vitamins to get started.</p>
-              <button class="empty-state-btn" id="empty-add-med-btn">＋ Add Your First Medicine</button>
+              <h3 class="empty-state-title">${t('empty_meds_title')}</h3>
+              <p class="empty-state-desc">${t('empty_meds_desc')}</p>
+              <button class="empty-state-btn" id="empty-add-med-btn">${t('empty_meds_btn')}</button>
             </div>
           ` : medicineListHTML}
         </div>
@@ -544,32 +646,32 @@ function renderApp() {
       <!-- Appointments List Section -->
       <section class="card appointments-card">
         <div class="section-heading">
-          <div><p class="eyebrow">CONSULTATIONS</p><h2>Upcoming Appointments</h2></div>
-          <span class="progress-pill">${upcomingAppts.length} scheduled</span>
+          <div><p class="eyebrow">${t('appts_eyebrow')}</p><h2>${t('appts_title')}</h2></div>
+          <span class="progress-pill">${t('appts_scheduled', { count: formatNumber(upcomingAppts.length) })}</span>
         </div>
         <div id="appointments-list">
-          ${upcomingAppts.length === 0 ? '<p class="empty-state">No upcoming appointments. Click "Add Visit" above to schedule one.</p>' : appointmentListHTML}
+          ${upcomingAppts.length === 0 ? `<p class="empty-state">${t('no_appts')}</p>` : appointmentListHTML}
         </div>
       </section>
 
       <!-- App Footer -->
       <footer class="app-footer">
-        <p class="copyright-text">Created by <a href="https://www.instagram.com/zhsaikot" target="_blank" rel="noopener noreferrer" class="creator-link">MD. Ziaul Hasan</a></p>
+        <p class="copyright-text">${appState.language === 'bn' ? 'তৈরি করেছেন' : 'Created by'} <a href="https://www.instagram.com/zhsaikot" target="_blank" rel="noopener noreferrer" class="creator-link">MD. Ziaul Hasan</a></p>
       </footer>
     </div>
     
     <!-- Vitals Modal -->
     <dialog id="vitals-modal" class="modal">
       <div class="modal-content">
-        <h3>Record Vital Signs</h3>
+        <h3>${t('vitals_modal_title')}</h3>
         <form id="vitals-form">
-          <label>Heart Rate (bpm)<input type="number" id="vitals-hr" placeholder="e.g., 72" min="30" max="250" /></label>
-          <label>Blood Pressure (Systolic/Diastolic)<input type="text" id="vitals-bp" placeholder="e.g., 120/80" pattern="\\d{2,3}/\\d{2,3}" title="Format: 120/80" /></label>
-          <label>Weight (kg)<input type="number" id="vitals-weight" step="0.1" placeholder="e.g., 70.5" min="1" max="500" /></label>
-          <label>Temperature (°C)<input type="number" id="vitals-temp" step="0.1" placeholder="e.g., 36.6" min="30" max="45" /></label>
+          <label>${t('heart_rate_label')}<input type="number" id="vitals-hr" placeholder="e.g., 72" min="30" max="250" /></label>
+          <label>${t('blood_pressure_label')}<input type="text" id="vitals-bp" placeholder="e.g., 120/80" pattern="\\d{2,3}/\\d{2,3}" title="Format: 120/80" /></label>
+          <label>${t('weight_modal_label')}<input type="number" id="vitals-weight" step="0.1" placeholder="e.g., 70.5" min="1" max="500" /></label>
+          <label>${t('temperature_label')}<input type="number" id="vitals-temp" step="0.1" placeholder="e.g., 36.6" min="30" max="45" /></label>
           <div class="modal-actions">
-            <button type="button" class="btn-secondary" id="close-vitals-btn">Cancel</button>
-            <button type="submit" class="btn-primary">Save Vitals</button>
+            <button type="button" class="btn-secondary" id="close-vitals-btn">${t('cancel_btn')}</button>
+            <button type="submit" class="btn-primary">${t('save_vitals_btn')}</button>
           </div>
         </form>
       </div>
@@ -578,16 +680,16 @@ function renderApp() {
     <!-- Sleep Modal -->
     <dialog id="sleep-modal" class="modal">
       <div class="modal-content">
-        <h3>Log Sleep</h3>
+        <h3>${t('sleep_modal_title')}</h3>
         <form id="sleep-form">
-          <label>Bedtime<input type="time" id="sleep-bedtime" value="23:00" required /></label>
-          <label>Wake Time<input type="time" id="sleep-waketime" value="07:00" required /></label>
-          <label>Sleep Quality (1-5): <span id="quality-display">3</span> Stars
+          <label>${t('bedtime_label')}<input type="time" id="sleep-bedtime" value="23:00" required /></label>
+          <label>${t('waketime_label')}<input type="time" id="sleep-waketime" value="07:00" required /></label>
+          <label>${t('sleep_quality_label', { stars: '<span id="quality-display">3</span>' })}
             <input type="range" id="sleep-quality" min="1" max="5" value="3" />
           </label>
           <div class="modal-actions">
-            <button type="button" class="btn-secondary" id="close-sleep-btn">Cancel</button>
-            <button type="submit" class="btn-primary">Save Sleep</button>
+            <button type="button" class="btn-secondary" id="close-sleep-btn">${t('cancel_btn')}</button>
+            <button type="submit" class="btn-primary">${t('save_sleep_btn')}</button>
           </div>
         </form>
       </div>
@@ -596,16 +698,16 @@ function renderApp() {
     <!-- Appointment Modal -->
     <dialog id="appointment-modal" class="modal">
       <div class="modal-content">
-        <h3>Add Appointment</h3>
+        <h3>${t('appt_modal_title')}</h3>
         <form id="appointment-form">
-          <label>Title<input type="text" id="appt-title" placeholder="e.g., Annual Check-up" required /></label>
-          <label>Doctor / Specialist<input type="text" id="appt-doctor" placeholder="e.g., Dr. Smith" required /></label>
-          <label>Date<input type="date" id="appt-date" value="${getTodayDateString()}" required /></label>
-          <label>Time<input type="time" id="appt-time" value="10:00" required /></label>
-          <label>Location / Clinic<input type="text" id="appt-location" placeholder="e.g., General Hospital, Rm 302" /></label>
+          <label>${t('appt_title_field')}<input type="text" id="appt-title" placeholder="${t('appt_title_ph')}" required /></label>
+          <label>${t('appt_doctor_field')}<input type="text" id="appt-doctor" placeholder="${t('appt_doctor_ph')}" required /></label>
+          <label>${t('appt_date_field')}<input type="date" id="appt-date" value="${getTodayDateString()}" required /></label>
+          <label>${t('appt_time_field')}<input type="time" id="appt-time" value="10:00" required /></label>
+          <label>${t('appt_location_field')}<input type="text" id="appt-location" placeholder="${t('appt_location_ph')}" /></label>
           <div class="modal-actions">
-            <button type="button" class="btn-secondary" id="close-appt-btn">Cancel</button>
-            <button type="submit" class="btn-primary">Add Appointment</button>
+            <button type="button" class="btn-secondary" id="close-appt-btn">${t('cancel_btn')}</button>
+            <button type="submit" class="btn-primary">${t('add_visit_btn')}</button>
           </div>
         </form>
       </div>
@@ -623,17 +725,17 @@ function renderApp() {
             <div class="avatar-meta-inline">
               <div class="avatar-btn-row">
                 <label class="avatar-upload-btn" for="avatar-file-input">
-                  📷 ${profile.avatarUrl ? 'Change' : 'Upload'} Photo
+                  📷 ${profile.avatarUrl ? t('avatar_change_btn') : 'Upload Photo'}
                 </label>
                 <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" />
-                <button type="button" class="avatar-remove-btn" id="remove-avatar-btn" style="${profile.avatarUrl ? '' : 'display:none;'}">Remove</button>
+                <button type="button" class="avatar-remove-btn" id="remove-avatar-btn" style="${profile.avatarUrl ? '' : 'display:none;'}">${t('avatar_remove_btn')}</button>
               </div>
-              <span class="avatar-hint">Stored offline in browser</span>
+              <span class="avatar-hint">${t('avatar_hint')}</span>
             </div>
           </div>
 
           <div class="profile-title-and-close">
-            <h3 class="profile-modal-heading">Profile & Health Baseline</h3>
+            <h3 class="profile-modal-heading">${t('profile_modal_heading')}</h3>
             <button type="button" class="modal-close-icon" id="close-profile-x" aria-label="Close modal">✕</button>
           </div>
         </div>
@@ -642,12 +744,12 @@ function renderApp() {
           <!-- 3-Column Balanced Biometrics Grid -->
           <div class="profile-fields-grid">
             <div class="field-fullname">
-              <label class="form-label" for="profile-name">Full Name</label>
-              <input type="text" id="profile-name" placeholder="e.g. Alex Morgan" value="${escapeHtml(profile.name || '')}" />
+              <label class="form-label" for="profile-name">${t('fullname_label')}</label>
+              <input type="text" id="profile-name" placeholder="${t('fullname_ph')}" value="${escapeHtml(profile.name || '')}" />
             </div>
 
             <div class="field-blood">
-              <label class="form-label" for="profile-blood-type">Blood Type</label>
+              <label class="form-label" for="profile-blood-type">${t('blood_type_label')}</label>
               <select id="profile-blood-type">
                 <option value="A+" ${profile.bloodType === 'A+' ? 'selected' : ''}>A+</option>
                 <option value="A-" ${profile.bloodType === 'A-' ? 'selected' : ''}>A-</option>
@@ -661,46 +763,46 @@ function renderApp() {
             </div>
 
             <div class="field-height">
-              <label class="form-label" for="profile-height">Height (cm)</label>
+              <label class="form-label" for="profile-height">${t('height_cm_label')}</label>
               <input type="number" id="profile-height" placeholder="170" min="50" max="260" required value="${profile.heightCm || 170}" />
             </div>
 
             <div class="field-weight">
-              <label class="form-label" for="profile-weight">Weight (kg)</label>
+              <label class="form-label" for="profile-weight">${t('weight_kg_label')}</label>
               <input type="number" id="profile-weight" step="0.1" placeholder="70.0" min="20" max="400" required value="${profile.weightKg || 70}" />
             </div>
 
             <div class="field-water">
-              <label class="form-label" for="profile-water-goal">Water Goal (ml)</label>
+              <label class="form-label" for="profile-water-goal">${t('water_goal_label')}</label>
               <input type="number" id="profile-water-goal" placeholder="2000" min="500" max="8000" step="50" required value="${hydrationGoal}" />
             </div>
           </div>
 
           <!-- Section 2: Compact Emergency Contact Strip -->
           <div class="emergency-contact-fieldset">
-            <div class="profile-section-legend">Emergency Contact (Optional)</div>
+            <div class="profile-section-legend">${t('emergency_legend')}</div>
             <div class="emergency-fields-grid">
               <div class="field-em-name">
-                <label class="form-label" for="profile-emergency-name">Contact Name</label>
-                <input type="text" id="profile-emergency-name" placeholder="e.g. Jane Doe" value="${escapeHtml(profile.emergencyContact?.name || '')}" />
+                <label class="form-label" for="profile-emergency-name">${t('em_name_label')}</label>
+                <input type="text" id="profile-emergency-name" placeholder="${t('em_name_ph')}" value="${escapeHtml(profile.emergencyContact?.name || '')}" />
               </div>
 
               <div class="field-em-phone">
-                <label class="form-label" for="profile-emergency-phone">Phone Number</label>
-                <input type="tel" id="profile-emergency-phone" placeholder="e.g. +1 555-0199" value="${escapeHtml(profile.emergencyContact?.phone || '')}" />
+                <label class="form-label" for="profile-emergency-phone">${t('em_phone_label')}</label>
+                <input type="tel" id="profile-emergency-phone" placeholder="${t('em_phone_ph')}" value="${escapeHtml(profile.emergencyContact?.phone || '')}" />
               </div>
 
               <div class="field-em-rel">
-                <label class="form-label" for="profile-emergency-rel">Relationship</label>
-                <input type="text" id="profile-emergency-rel" placeholder="e.g. Spouse, Parent" value="${escapeHtml(profile.emergencyContact?.relationship || '')}" />
+                <label class="form-label" for="profile-emergency-rel">${t('em_rel_label')}</label>
+                <input type="text" id="profile-emergency-rel" placeholder="${t('em_rel_ph')}" value="${escapeHtml(profile.emergencyContact?.relationship || '')}" />
               </div>
             </div>
           </div>
 
           <!-- Bottom Action Buttons -->
           <div class="profile-modal-actions">
-            <button type="button" class="btn-secondary" id="close-profile-btn">Cancel</button>
-            <button type="submit" class="btn-primary">Save Profile</button>
+            <button type="button" class="btn-secondary" id="close-profile-btn">${t('cancel_btn')}</button>
+            <button type="submit" class="btn-primary">${t('save_profile_btn')}</button>
           </div>
         </form>
       </div>
@@ -710,14 +812,14 @@ function renderApp() {
     <dialog id="goal-modal" class="modal">
       <div class="modal-content goal-modal-content">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-          <h3 style="margin:0;">Daily Water Goal</h3>
+          <h3 style="margin:0;">${t('goal_modal_title')}</h3>
           <button type="button" class="icon-btn" id="close-goal-x" style="border:none; width:30px; height:30px; font-size:1.1rem; cursor:pointer;">✕</button>
         </div>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
-          Adjust your target daily hydration. The recommended baseline is 2000ml – 3000ml.
+          ${t('goal_modal_desc')}
         </p>
         <form id="quick-goal-form">
-          <label class="form-label">Daily Target (ml)
+          <label class="form-label">${t('target_intake_label')}
             <input type="number" id="quick-goal-input" min="500" max="8000" step="50" value="${hydrationGoal}" required />
           </label>
           <div style="display:flex; gap:8px; margin: 12px 0;">
@@ -727,8 +829,8 @@ function renderApp() {
             <button type="button" class="goal-preset-btn" data-ml="3000" style="flex:1; padding:7px 4px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--text-main);">3000ml</button>
           </div>
           <div class="modal-actions">
-            <button type="button" class="btn-secondary" id="close-goal-btn">Cancel</button>
-            <button type="submit" class="btn-primary">Save Goal</button>
+            <button type="button" class="btn-secondary" id="close-goal-btn">${t('cancel_btn')}</button>
+            <button type="submit" class="btn-primary">${t('save_goal_btn')}</button>
           </div>
         </form>
       </div>
@@ -741,6 +843,15 @@ function renderApp() {
 function attachEventListeners() {
   const data = getAppData();
 
+  // Language Toggle
+  document.getElementById('toggle-lang-btn')?.addEventListener('click', () => {
+    appState.language = appState.language === 'en' ? 'bn' : 'en';
+    setAppLanguage(appState.language);
+    setLanguage(appState.language);
+    saveAppState();
+    renderApp();
+  });
+
   // Notification Bell Toggle
   document.getElementById('toggle-notifications-btn')?.addEventListener('click', async () => {
     if (!appState.notificationsEnabled) {
@@ -751,7 +862,9 @@ function attachEventListeners() {
         sendLocalNotification('Notifications Active 🔔', 'MediTrack will remind you when it is time for your medication.');
         renderApp();
       } else {
-        alert('Notification permission was not granted. You can enable it in your browser settings.');
+        alert(appState.language === 'bn' 
+          ? 'নোটিফিকেশন অনুমতি পাওয়া যায়নি। আপনার ব্রাউজার সেটিংস থেকে চালু করতে পারেন।' 
+          : 'Notification permission was not granted. You can enable it in your browser settings.');
       }
     } else {
       appState.notificationsEnabled = false;
@@ -786,46 +899,71 @@ function attachEventListeners() {
     (document.getElementById('med-name') as HTMLInputElement)?.focus();
   });
 
-  // Medicine Form
+  // Initialize Dose Times in Add Medicine Form
+  const dosesSelect = document.getElementById('med-doses-per-day') as HTMLSelectElement;
+  if (dosesSelect) {
+    renderDoseTimeInputs(parseInt(dosesSelect.value, 10) || 1);
+    dosesSelect.addEventListener('change', () => {
+      const count = parseInt(dosesSelect.value, 10) || 1;
+      renderDoseTimeInputs(count);
+    });
+  }
+
+  // Medicine Form Submission
   const form = document.getElementById('add-med-form') as HTMLFormElement;
   form?.addEventListener('submit', (e) => {
     e.preventDefault();
     const frequency = (document.getElementById('med-frequency') as HTMLSelectElement).value as 'daily' | 'weekdays' | 'weekends';
+    
+    // Read all dose times
+    const times: string[] = [];
+    document.querySelectorAll<HTMLInputElement>('.med-dose-time').forEach(input => {
+      if (input.value) times.push(input.value);
+    });
+    const dosesPerDay = times.length || 1;
+    const primaryTime = times[0] || '09:00';
+
     addMedicine({
-      id: Date.now().toString(),
       name: (document.getElementById('med-name') as HTMLInputElement).value.trim(),
       dosage: (document.getElementById('med-dosage') as HTMLInputElement).value.trim(),
-      time: (document.getElementById('med-time') as HTMLInputElement).value,
+      time: primaryTime,
+      times: times.length > 0 ? times : [primaryTime],
+      dosesPerDay: dosesPerDay,
       taken: false,
       frequency: frequency,
       specificDays: [],
       inventory: parseInt((document.getElementById('med-inventory') as HTMLInputElement).value) || 30,
-      createdAt: new Date().toISOString()
     });
     renderApp();
   });
 
-  // Medicine Actions (Take, Skip, Undo, Refill & Delete)
+  // Medicine Actions (Take, Skip, Undo, Refill & Delete) with multi-dose index support
   document.querySelectorAll('.take-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
-      markMedicineTaken(id);
+      const target = e.currentTarget as HTMLButtonElement;
+      const id = target.dataset.id!;
+      const doseIndex = parseInt(target.dataset.doseIndex || '0', 10);
+      markMedicineTaken(id, doseIndex);
       renderApp();
     });
   });
 
   document.querySelectorAll('.skip-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
-      markMedicineSkipped(id);
+      const target = e.currentTarget as HTMLButtonElement;
+      const id = target.dataset.id!;
+      const doseIndex = parseInt(target.dataset.doseIndex || '0', 10);
+      markMedicineSkipped(id, doseIndex);
       renderApp();
     });
   });
 
   document.querySelectorAll('.undo-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
-      unmarkMedicine(id);
+      const target = e.currentTarget as HTMLButtonElement;
+      const id = target.dataset.id!;
+      const doseIndex = parseInt(target.dataset.doseIndex || '0', 10);
+      unmarkMedicine(id, doseIndex);
       renderApp();
     });
   });
@@ -834,7 +972,7 @@ function attachEventListeners() {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
       refillMedicine(id, 30);
-      alert('Inventory restocked +30 doses! 💊');
+      alert(appState.language === 'bn' ? 'স্টক পুনরায় পূরণ করা হয়েছে (+৩০ ডোজ)! 💊' : 'Inventory restocked +30 doses! 💊');
       renderApp();
     });
   });
@@ -842,7 +980,8 @@ function attachEventListeners() {
   document.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
-      if (confirm('Delete this medicine from your schedule?')) {
+      const confirmText = appState.language === 'bn' ? 'আপনার সময়সূচী থেকে এই ওষুধটি মুছতে চান?' : 'Delete this medicine from your schedule?';
+      if (confirm(confirmText)) {
         deleteMedicine(id);
         renderApp();
       }
@@ -853,7 +992,8 @@ function attachEventListeners() {
   document.querySelectorAll('.delete-appt-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
-      if (confirm('Delete this appointment?')) {
+      const confirmText = appState.language === 'bn' ? 'এই অ্যাপয়েন্টমেন্টটি মুছতে চান?' : 'Delete this appointment?';
+      if (confirm(confirmText)) {
         deleteAppointment(id);
         renderApp();
       }
@@ -899,7 +1039,7 @@ function attachEventListeners() {
   // Save Mood
   document.getElementById('save-mood-btn')?.addEventListener('click', () => {
     if (appState.currentMood === 0) {
-      alert("Please select how you're feeling first!");
+      alert(appState.language === 'bn' ? "দয়া করে প্রথমে আপনার অনুভূতি নির্বাচন করুন!" : "Please select how you're feeling first!");
       return;
     }
     const notes = (document.getElementById('mood-notes') as HTMLTextAreaElement).value.trim();
@@ -914,7 +1054,7 @@ function attachEventListeners() {
       createdAt: new Date().toISOString()
     });
     
-    alert("Check-in saved! 🎉");
+    alert(appState.language === 'bn' ? "আজকের চেক-ইন সংরক্ষিত হয়েছে! 🎉" : "Check-in saved! 🎉");
     renderApp();
   });
 
@@ -969,7 +1109,7 @@ function attachEventListeners() {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
     if (file.size > 2.5 * 1024 * 1024) {
-      alert('Please choose an image smaller than 2.5MB.');
+      alert(appState.language === 'bn' ? 'অনুগ্রহ করে ২.৫ মেগাবাইটের কম সাইজের ছবি দিন।' : 'Please choose an image smaller than 2.5MB.');
       return;
     }
     const reader = new FileReader();
@@ -1158,11 +1298,22 @@ function updateEmojiUI() {
 }
 
 function updateSymptomUI() {
+  const symptomsMap: Record<string, string> = {
+    'Headache': t('symptom_headache'),
+    'Fatigue': t('symptom_fatigue'),
+    'Nausea': t('symptom_nausea'),
+    'Pain': t('symptom_pain'),
+    'Anxiety': t('symptom_anxiety'),
+    'Dizziness': t('symptom_dizziness'),
+    'Stress': t('symptom_stress'),
+    'Insomnia': t('symptom_insomnia'),
+  };
   document.querySelectorAll('.symptom-btn').forEach(btn => {
     const symptom = btn.getAttribute('data-symptom')!;
     const isSelected = appState.currentSymptoms.includes(symptom);
     btn.classList.toggle('selected', isSelected);
-    btn.innerHTML = `${isSelected ? '✓ ' : ''}${symptom}`;
+    const label = symptomsMap[symptom] || symptom;
+    btn.innerHTML = `${isSelected ? '✓ ' : ''}${label}`;
   });
 }
 
@@ -1222,10 +1373,10 @@ function importData(event: Event) {
   reader.onload = (e) => {
     const content = e.target?.result as string;
     if (importAllData(content)) {
-      alert('Data imported successfully! 🎉');
+      alert(appState.language === 'bn' ? 'ডাটা সফলভাবে ইমপোর্ট করা হয়েছে! 🎉' : 'Data imported successfully! 🎉');
       renderApp();
     } else {
-      alert('Error importing data. Please check the file format.');
+      alert(appState.language === 'bn' ? 'ডাটা ইমপোর্ট করতে সমস্যা হয়েছে। অনুগ্রহ করে ফাইল ফরম্যাট যাচাই করুন।' : 'Error importing data. Please check the file format.');
     }
   };
   reader.readAsText(file);
