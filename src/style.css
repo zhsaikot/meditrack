@@ -1735,17 +1735,19 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   background: rgba(255, 255, 255, 0.22);
 }
 
-/* Profile Setup Modal: Optimized for Desktop, Tablet, and Mobile with NO scrollbars */
+/* Profile Setup Modal: Optimized for Desktop, Tablet, and Mobile with smooth scroll */
 #profile-modal {
   max-width: 650px;
   width: min(650px, calc(100vw - 28px));
+  max-height: 90vh;
   box-sizing: border-box;
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 18px;
   background: var(--bg-card);
-  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.28);
   margin: auto;
+  padding: 0;
 }
 
 #profile-modal::backdrop {
@@ -1757,8 +1759,25 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   padding: 20px 24px 18px;
   width: 100%;
   max-width: 100%;
+  max-height: 90vh;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+#profile-modal .profile-modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+#profile-modal .profile-modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#profile-modal .profile-modal-content::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
 }
 
 /* Integrated Header with Inline Avatar */
@@ -1978,24 +1997,54 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   grid-column: span 1;
 }
 
-/* Modal Actions */
+/* Modal Actions - Sticky Bottom Bar so Save & Cancel are ALWAYS visible */
 .profile-modal-actions {
+  position: sticky;
+  bottom: -18px;
+  background: var(--bg-card);
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 18px;
+  padding: 12px 0 6px;
+  border-top: 1px solid var(--border-color);
+  z-index: 10;
 }
 
 .profile-modal-actions .btn-secondary {
-  padding: 8px 16px;
+  padding: 9px 18px;
   font-size: 0.88rem;
-  border-radius: 8px;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .profile-modal-actions .btn-primary {
-  padding: 8px 20px;
+  padding: 9px 24px;
   font-size: 0.88rem;
-  border-radius: 8px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-modal-actions .btn-primary:hover {
+  background: linear-gradient(135deg, #14B8A6 0%, #0D9488 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+}
+
+.dark-mode .profile-modal-actions {
+  background: #1e293b;
+  border-color: #334155;
 }
 
 /* Mobile Responsiveness (< 600px) */
@@ -2003,12 +2052,14 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   #profile-modal {
     width: calc(100vw - 16px);
     max-width: calc(100vw - 16px);
+    max-height: 92vh;
     margin: 8px auto;
     border-radius: 14px;
   }
 
   #profile-modal .profile-modal-content {
-    padding: 14px 12px 12px;
+    padding: 14px 14px 12px;
+    max-height: 92vh;
   }
 
   .profile-header-banner {
@@ -2088,22 +2139,10 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   }
 
   .profile-modal-actions {
-    margin-top: 10px;
-  }
-}
-
-/* Fallback for ultra-short landscape viewports (e.g. rotated mobile screens) */
-@media (max-height: 500px) {
-  #profile-modal {
-    max-height: 96vh;
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-  #profile-modal::-webkit-scrollbar {
-    display: none;
-  }
-  #profile-modal .profile-modal-content {
-    overflow-y: visible;
+    position: sticky;
+    bottom: -12px;
+    margin-top: 12px;
+    padding: 10px 0 4px;
   }
 }
 

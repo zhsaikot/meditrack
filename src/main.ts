@@ -918,7 +918,7 @@ function renderApp() {
           <!-- Bottom Action Buttons -->
           <div class="profile-modal-actions">
             <button type="button" class="btn-secondary" id="close-profile-btn">${t('cancel_btn')}</button>
-            <button type="submit" class="btn-primary">${t('save_profile_btn')}</button>
+            <button type="submit" class="btn-primary" id="save-profile-btn">💾 ${t('save_profile_btn')}</button>
           </div>
         </form>
       </div>
@@ -1390,6 +1390,7 @@ function attachEventListeners() {
     setCustomHydrationGoal(waterGoal);
     profileModal?.close();
     renderApp();
+    showQuickToast(appState.language === 'bn' ? 'প্রোফাইল সফলভাবে সংরক্ষিত হয়েছে! ✨' : 'Profile saved successfully! ✨');
   });
 
   // Water Goal Quick Modal
