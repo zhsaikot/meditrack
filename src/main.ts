@@ -31,6 +31,7 @@ import {
   initMedicineModule, 
   getTodayMedicineList, 
   addMedicine,
+  updateMedicine,
   markMedicineTaken, 
   markMedicineSkipped, 
   unmarkMedicine, 
@@ -52,6 +53,8 @@ import {
   requestNotificationPermission, 
   getNotificationPermission, 
   startReminderScheduler,
+  stopReminderScheduler,
+  triggerTestReminder,
   sendLocalNotification,
   showInAppToast,
   showQuickToast
@@ -74,7 +77,8 @@ let appState = {
   isDarkMode: false,
   notificationsEnabled: false,
   language: getAppLanguage() as Language,
-  selectedTimeframe: 'weekly' as 'daily' | 'weekly' | 'monthly'
+  selectedTimeframe: 'weekly' as 'daily' | 'weekly' | 'monthly',
+  isAddMedOpen: false
 };
 
 // Default dose time presets based on doses per day
@@ -84,6 +88,40 @@ const defaultTimesByCount: Record<number, string[]> = {
   3: ['08:00', '14:00', '20:00'],
   4: ['08:00', '12:00', '16:00', '20:00']
 };
+
+// Sync Notification Reminder Scheduler Engine
+function syncReminderScheduler() {
+  if (appState.notificationsEnabled) {
+    startReminderScheduler(
+      () => {
+        const list = getTodayMedicineList();
+        return list
+          .filter(({ log }) => !log?.taken && !log?.skipped)
+          .map(({ medicine, time, doseIndex }) => ({
+            id: medicine.id,
+            doseIndex,
+            name: medicine.name,
+            dosage: medicine.dosage,
+            time: time
+          }));
+      },
+      {
+        onTakeMed: (id: string, doseIndex: number) => {
+          markMedicineTaken(id, doseIndex);
+          showQuickToast(t('toast_med_success'), '✨');
+          renderApp();
+        },
+        onAddWater: () => {
+          addWater(250);
+          showQuickToast(t('toast_water_success'), '💧');
+          renderApp();
+        }
+      }
+    );
+  } else {
+    stopReminderScheduler();
+  }
+}
 
 // Load saved state
 function loadAppState() {
@@ -114,35 +152,8 @@ function loadAppState() {
     appState.currentSymptoms = [...todayMood.symptoms];
   }
 
-  // Start notification scheduler
-  if (appState.notificationsEnabled) {
-    startReminderScheduler(
-      () => {
-        const list = getTodayMedicineList();
-        return list
-          .filter(({ log }) => !log?.taken && !log?.skipped)
-          .map(({ medicine, time, doseIndex }) => ({
-            id: medicine.id,
-            doseIndex,
-            name: medicine.name,
-            dosage: medicine.dosage,
-            time: time
-          }));
-      },
-      {
-        onTakeMed: (id: string, doseIndex: number) => {
-          markMedicineTaken(id, doseIndex);
-          showQuickToast(t('toast_med_success'), '✨');
-          renderApp();
-        },
-        onAddWater: () => {
-          addWater(250);
-          showQuickToast(t('toast_water_success'), '💧');
-          renderApp();
-        }
-      }
-    );
-  }
+  // Sync notification scheduler
+  syncReminderScheduler();
 }
 
 function saveAppState() {
@@ -168,6 +179,26 @@ function renderDoseTimeInputs(count: number, existingTimes: string[] = []) {
     html += `
       <label class="form-label">${label}
         <input type="time" class="med-dose-time" required value="${val}" />
+      </label>
+    `;
+  }
+  container.innerHTML = `<div class="dose-times-grid">${html}</div>`;
+}
+
+// Dynamically render time pickers in Edit Medicine Form
+function renderEditDoseTimeInputs(count: number, existingTimes: string[] = []) {
+  const container = document.getElementById('edit-dose-times-container');
+  if (!container) return;
+  const defaults = defaultTimesByCount[count] || ['09:00'];
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const val = existingTimes[i] || defaults[i] || '09:00';
+    const label = count > 1 
+      ? t('dose_num_label', { num: formatNumber(i + 1) })
+      : t('dose_time_label');
+    html += `
+      <label class="form-label">${label}
+        <input type="time" class="edit-med-dose-time" required value="${val}" />
       </label>
     `;
   }
@@ -221,6 +252,17 @@ function renderApp() {
 
   const medicineListHTML = todaysMedList.map(({ medicine, doseIndex, time, totalDoses, log }) => {
     const isNext = nextMedicine && nextMedicine.medicine.id === medicine.id && nextMedicine.doseIndex === doseIndex && !log?.taken && !log?.skipped;
+    const inv = medicine.inventory ?? 0;
+    let stockClass = 'stock-healthy';
+    if (inv <= 5) {
+      stockClass = 'stock-critical';
+    } else if (inv <= 15) {
+      stockClass = 'stock-warning';
+    }
+    const stockBadgeText = inv <= 1 
+      ? t('stock_badge_single') 
+      : t('stock_badge', { count: formatNumber(inv) });
+
     return `
       <div class="medicine-item ${log?.taken ? 'taken' : log?.skipped ? 'skipped' : ''}">
         <div class="med-info">
@@ -230,12 +272,13 @@ function renderApp() {
             ${totalDoses > 1 ? `<span class="dose-badge-pill">${t('dose_tag', { index: formatNumber(doseIndex + 1), total: formatNumber(totalDoses) })}</span>` : ''}
           </div>
           <div class="time">🕐 ${formatTime(time)}${isNext ? ` · <span class="next-tag">${t('next_up_badge')}</span>` : ''}</div>
-          ${medicine.inventory <= 5 ? `
-            <div class="low-stock">
-              <span>${t('low_supply_warn', { count: formatNumber(medicine.inventory), plural: medicine.inventory === 1 ? '' : 's' })}</span>
+          
+          <div class="med-stock-row">
+            <span class="stock-pill ${stockClass}">💊 ${stockBadgeText}</span>
+            ${medicine.inventory <= 5 ? `
               <button class="refill-btn" data-id="${medicine.id}" title="${t('restock_btn')}">${t('restock_btn')}</button>
-            </div>
-          ` : ''}
+            ` : ''}
+          </div>
         </div>
         <div class="med-actions">
           ${!log?.taken && !log?.skipped ? `
@@ -244,6 +287,7 @@ function renderApp() {
           ` : `
             <button class="action-btn undo-btn" data-id="${medicine.id}" data-dose-index="${doseIndex}" title="${t('undo_btn_title')}" aria-label="${t('undo_btn_title')}">↩</button>
           `}
+          <button class="action-btn edit-btn" data-id="${medicine.id}" title="${t('edit_btn_title')}" aria-label="${t('edit_btn_title')}">✏️</button>
           <button class="delete-btn" data-id="${medicine.id}" title="${t('delete_btn_title')}" aria-label="${t('delete_btn_title')}">🗑️</button>
         </div>
       </div>
@@ -617,45 +661,53 @@ function renderApp() {
         </div>
       </section>
 
-      <!-- Medicine Section (Add Medicine Form with Doses per day) -->
-      <section class="card add-med-card">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('routine_eyebrow')}</p><h2>${t('routine_title')}</h2></div>
-          <span class="section-icon">＋</span>
+      <!-- Medicine Section (Collapsible Accordion with Doses per day) -->
+      <section class="card add-med-card ${appState.isAddMedOpen ? 'expanded' : 'collapsed'}">
+        <div class="section-heading accordion-header" id="add-med-accordion-header" role="button" tabindex="0" aria-expanded="${appState.isAddMedOpen}">
+          <div>
+            <p class="eyebrow">${t('routine_eyebrow')}</p>
+            <h2>${t('routine_title')}</h2>
+            ${!appState.isAddMedOpen ? `<div class="accordion-collapsed-hint"><span>＋</span> ${t('expand_form_btn')}</div>` : ''}
+          </div>
+          <button type="button" class="accordion-toggle-btn" id="toggle-add-med-btn" aria-label="${appState.isAddMedOpen ? t('collapse_form_btn') : t('expand_form_btn')}">
+            <span class="accordion-icon">${appState.isAddMedOpen ? '✕' : '＋'}</span>
+          </button>
         </div>
-        <form id="add-med-form">
-          <input type="text" id="med-name" placeholder="${t('med_name_ph')}" required />
-          <input type="text" id="med-dosage" placeholder="${t('med_dosage_ph')}" required />
-          
-          <div class="form-row">
-            <label class="form-label">${t('doses_per_day_label')}
-              <select id="med-doses-per-day">
-                <option value="1">${t('dose_1_time')}</option>
-                <option value="2">${t('dose_2_times')}</option>
-                <option value="3">${t('dose_3_times')}</option>
-                <option value="4">${t('dose_4_times')}</option>
-              </select>
-            </label>
-            <label class="form-label">${t('frequency_label')}
-              <select id="med-frequency">
-                <option value="daily">${t('freq_daily')}</option>
-                <option value="weekdays">${t('freq_weekdays')}</option>
-                <option value="weekends">${t('freq_weekends')}</option>
-              </select>
-            </label>
-          </div>
+        <div class="accordion-body ${appState.isAddMedOpen ? 'open' : ''}">
+          <form id="add-med-form">
+            <input type="text" id="med-name" placeholder="${t('med_name_ph')}" required />
+            <input type="text" id="med-dosage" placeholder="${t('med_dosage_ph')}" required />
+            
+            <div class="form-row">
+              <label class="form-label">${t('doses_per_day_label')}
+                <select id="med-doses-per-day">
+                  <option value="1">${t('dose_1_time')}</option>
+                  <option value="2">${t('dose_2_times')}</option>
+                  <option value="3">${t('dose_3_times')}</option>
+                  <option value="4">${t('dose_4_times')}</option>
+                </select>
+              </label>
+              <label class="form-label">${t('frequency_label')}
+                <select id="med-frequency">
+                  <option value="daily">${t('freq_daily')}</option>
+                  <option value="weekdays">${t('freq_weekdays')}</option>
+                  <option value="weekends">${t('freq_weekends')}</option>
+                </select>
+              </label>
+            </div>
 
-          <div id="dose-times-container">
-            <!-- Dynamic dose time pickers rendered here -->
-          </div>
+            <div id="dose-times-container">
+              <!-- Dynamic dose time pickers rendered here -->
+            </div>
 
-          <div class="form-row">
-            <label class="form-label">${t('initial_supply_label')}
-              <input type="number" id="med-inventory" placeholder="${t('pills_left_ph')}" min="0" value="30" />
-            </label>
-          </div>
-          <button type="submit" class="btn-primary">${t('add_medicine_btn')}</button>
-        </form>
+            <div class="form-row">
+              <label class="form-label">${t('initial_supply_label')}
+                <input type="number" id="med-inventory" placeholder="${t('pills_left_ph')}" min="0" value="30" />
+              </label>
+            </div>
+            <button type="submit" class="btn-primary">${t('add_medicine_btn')}</button>
+          </form>
+        </div>
       </section>
 
       <!-- Medicine Schedule Card with Empty State Routing -->
@@ -834,6 +886,11 @@ function renderApp() {
               </button>
             </div>
           </div>
+          <div class="pref-test-row">
+            <button type="button" class="pref-test-btn" id="modal-test-reminder-btn">
+              ${t('test_reminder_btn')}
+            </button>
+          </div>
         </div>
 
         <form id="profile-form">
@@ -1003,6 +1060,60 @@ function renderApp() {
         </form>
       </div>
     </dialog>
+
+    <!-- Edit Medicine Modal -->
+    <dialog id="edit-med-modal" class="modal">
+      <div class="modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+          <h3 style="margin:0;">✏️ ${t('edit_med_modal_title')}</h3>
+          <button type="button" class="icon-btn" id="close-edit-med-x" style="border:none; width:30px; height:30px; font-size:1.1rem; cursor:pointer;">✕</button>
+        </div>
+        <form id="edit-med-form">
+          <input type="hidden" id="edit-med-id" />
+          
+          <label class="form-label">${t('med_name_ph')}
+            <input type="text" id="edit-med-name" placeholder="${t('med_name_ph')}" required />
+          </label>
+          
+          <label class="form-label">${t('med_dosage_ph')}
+            <input type="text" id="edit-med-dosage" placeholder="${t('med_dosage_ph')}" required />
+          </label>
+
+          <div class="form-row">
+            <label class="form-label">${t('doses_per_day_label')}
+              <select id="edit-med-doses-per-day">
+                <option value="1">${t('dose_1_time')}</option>
+                <option value="2">${t('dose_2_times')}</option>
+                <option value="3">${t('dose_3_times')}</option>
+                <option value="4">${t('dose_4_times')}</option>
+              </select>
+            </label>
+            <label class="form-label">${t('frequency_label')}
+              <select id="edit-med-frequency">
+                <option value="daily">${t('freq_daily')}</option>
+                <option value="weekdays">${t('freq_weekdays')}</option>
+                <option value="weekends">${t('freq_weekends')}</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="edit-dose-times-container">
+            <!-- Dynamic dose time pickers rendered here -->
+          </div>
+
+          <div class="form-row">
+            <label class="form-label">${t('initial_supply_label')}
+              <input type="number" id="edit-med-inventory" placeholder="${t('pills_left_ph')}" min="0" required />
+            </label>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 18px;">
+            <button type="button" class="btn-secondary" id="close-edit-med-btn">${t('cancel_btn')}</button>
+            <button type="submit" class="btn-primary" id="save-edit-med-btn">${t('edit_med_save_btn')}</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
   `;
 
   attachEventListeners();
@@ -1047,9 +1158,30 @@ function attachEventListeners() {
 
   // Empty State Routing Button
   document.getElementById('empty-add-med-btn')?.addEventListener('click', () => {
+    appState.isAddMedOpen = true;
+    renderApp();
     const form = document.getElementById('add-med-form');
     form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     (document.getElementById('med-name') as HTMLInputElement)?.focus();
+  });
+
+  // Accordion Header & Toggle for Add Medicine Card
+  const accordionHeader = document.getElementById('add-med-accordion-header');
+  const accordionToggleBtn = document.getElementById('toggle-add-med-btn');
+  const toggleAddMedAccordion = () => {
+    appState.isAddMedOpen = !appState.isAddMedOpen;
+    renderApp();
+    if (appState.isAddMedOpen) {
+      document.getElementById('med-name')?.focus();
+    }
+  };
+  accordionHeader?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('#toggle-add-med-btn')) return;
+    toggleAddMedAccordion();
+  });
+  accordionToggleBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleAddMedAccordion();
   });
 
   // Initialize Dose Times in Add Medicine Form
@@ -1087,10 +1219,12 @@ function attachEventListeners() {
       specificDays: [],
       inventory: parseInt((document.getElementById('med-inventory') as HTMLInputElement).value) || 30,
     });
+    syncReminderScheduler();
+    showQuickToast(t('med_added_toast'), '✨');
     renderApp();
   });
 
-  // Medicine Actions (Take, Skip, Undo, Refill & Delete) with multi-dose index support
+  // Medicine Actions (Take, Skip, Undo, Refill, Edit & Delete) with multi-dose index support
   document.querySelectorAll('.take-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const target = e.currentTarget as HTMLButtonElement;
@@ -1131,12 +1265,90 @@ function attachEventListeners() {
     });
   });
 
+  // Edit Medicine Setup
+  const editMedModal = document.getElementById('edit-med-modal') as HTMLDialogElement;
+  const editDosesSelect = document.getElementById('edit-med-doses-per-day') as HTMLSelectElement;
+
+  editDosesSelect?.addEventListener('change', () => {
+    const count = parseInt(editDosesSelect.value, 10) || 1;
+    const currentValues: string[] = [];
+    document.querySelectorAll<HTMLInputElement>('.edit-med-dose-time').forEach(inp => {
+      if (inp.value) currentValues.push(inp.value);
+    });
+    renderEditDoseTimeInputs(count, currentValues);
+  });
+
+  document.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
+      const medicine = getMedicines().find(m => m.id === id);
+      if (!medicine) return;
+
+      (document.getElementById('edit-med-id') as HTMLInputElement).value = medicine.id;
+      (document.getElementById('edit-med-name') as HTMLInputElement).value = medicine.name;
+      (document.getElementById('edit-med-dosage') as HTMLInputElement).value = medicine.dosage;
+      (document.getElementById('edit-med-inventory') as HTMLInputElement).value = String(medicine.inventory ?? 30);
+      
+      const freqSelect = document.getElementById('edit-med-frequency') as HTMLSelectElement;
+      if (freqSelect) freqSelect.value = medicine.frequency;
+
+      const doseTimes = (medicine.times && medicine.times.length > 0) ? medicine.times : [medicine.time];
+      const dosesCount = medicine.dosesPerDay || doseTimes.length || 1;
+      
+      if (editDosesSelect) {
+        editDosesSelect.value = String(Math.min(4, Math.max(1, dosesCount)));
+      }
+      renderEditDoseTimeInputs(dosesCount, doseTimes);
+
+      editMedModal?.showModal();
+    });
+  });
+
+  document.getElementById('close-edit-med-btn')?.addEventListener('click', () => {
+    editMedModal?.close();
+  });
+  document.getElementById('close-edit-med-x')?.addEventListener('click', () => {
+    editMedModal?.close();
+  });
+
+  document.getElementById('edit-med-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = (document.getElementById('edit-med-id') as HTMLInputElement).value;
+    const name = (document.getElementById('edit-med-name') as HTMLInputElement).value.trim();
+    const dosage = (document.getElementById('edit-med-dosage') as HTMLInputElement).value.trim();
+    const frequency = (document.getElementById('edit-med-frequency') as HTMLSelectElement).value as 'daily' | 'weekdays' | 'weekends';
+    const inventory = parseInt((document.getElementById('edit-med-inventory') as HTMLInputElement).value, 10) || 0;
+
+    const times: string[] = [];
+    document.querySelectorAll<HTMLInputElement>('.edit-med-dose-time').forEach(input => {
+      if (input.value) times.push(input.value);
+    });
+    const dosesPerDay = times.length || 1;
+    const primaryTime = times[0] || '09:00';
+
+    updateMedicine(id, {
+      name,
+      dosage,
+      frequency,
+      time: primaryTime,
+      times: times.length > 0 ? times : [primaryTime],
+      dosesPerDay,
+      inventory
+    });
+
+    editMedModal?.close();
+    syncReminderScheduler();
+    showQuickToast(t('med_updated_toast'), '✨');
+    renderApp();
+  });
+
   document.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
       const confirmText = appState.language === 'bn' ? 'আপনার সময়সূচী থেকে এই ওষুধটি মুছতে চান?' : 'Delete this medicine from your schedule?';
       if (confirm(confirmText)) {
         deleteMedicine(id);
+        syncReminderScheduler();
         renderApp();
       }
     });
@@ -1222,7 +1434,7 @@ function attachEventListeners() {
   const reportModal = document.getElementById('report-modal') as HTMLDialogElement;
 
   // Backdrop click to close modals
-  [vitalsModal, sleepModal, apptModal, profileModal, goalModal, reportModal].forEach(modal => {
+  [vitalsModal, sleepModal, apptModal, profileModal, goalModal, reportModal, editMedModal].forEach(modal => {
     modal?.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.close();
@@ -1299,6 +1511,7 @@ function attachEventListeners() {
       if (granted) {
         appState.notificationsEnabled = true;
         saveAppState();
+        syncReminderScheduler();
         sendLocalNotification(
           appState.language === 'bn' ? 'নোটিফিকেশন সক্রিয় হয়েছে 🔔' : 'Notifications Active 🔔',
           appState.language === 'bn' ? 'মেডিট্র্যাক যথাসময়ে আপনার ওষুধ ও পানি পানের কথা মনে করিয়ে দেবে।' : 'MediTrack will remind you when it is time for your medication.'
@@ -1313,9 +1526,25 @@ function attachEventListeners() {
     } else {
       appState.notificationsEnabled = false;
       saveAppState();
+      syncReminderScheduler();
       renderApp();
       openProfileModal();
     }
+  });
+
+  document.getElementById('modal-test-reminder-btn')?.addEventListener('click', () => {
+    triggerTestReminder({
+      onTakeMed: (id: string, doseIndex: number) => {
+        markMedicineTaken(id, doseIndex);
+        showQuickToast(t('toast_med_success'), '✨');
+        renderApp();
+      },
+      onAddWater: () => {
+        addWater(250);
+        showQuickToast(t('toast_water_success'), '💧');
+        renderApp();
+      }
+    });
   });
 
   document.getElementById('modal-toggle-theme-btn')?.addEventListener('click', () => {

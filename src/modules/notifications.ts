@@ -2,8 +2,8 @@
 import { t } from './i18n';
 
 let reminderInterval: number | null = null;
-let lastFiredMinute: string = '';
-let lastFiredWaterHour: number = -1;
+const firedMedReminders = new Set<string>();
+const firedWaterBlocks = new Set<string>();
 
 export interface PendingMedItem {
   id: string;
@@ -38,37 +38,63 @@ export function playNotificationSound(): void {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+    // Friendly 2-tone melodic chime (C5 -> G5)
+    const now = ctx.currentTime;
+    
+    // Note 1: C5 (523.25 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(523.25, now);
+    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.28);
 
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
+    // Note 2: G5 (783.99 Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(783.99, now + 0.14);
+    gain2.gain.setValueAtTime(0.22, now + 0.14);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.14);
+    osc2.stop(now + 0.55);
   } catch {
-    // AudioContext blocked or not supported
+    // AudioContext blocked or not supported on device
   }
 }
 
-export function sendLocalNotification(title: string, body: string): void {
+export function sendLocalNotification(title: string, body: string, icon: string = '/favicon.svg'): void {
   playNotificationSound();
+
   if (isNotificationSupported() && Notification.permission === 'granted') {
     try {
-      new Notification(title, {
-        body,
-        icon: '/favicon.svg',
-        badge: '/favicon.svg'
-      });
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.showNotification(title, {
+            body,
+            icon,
+            badge: icon,
+            tag: 'meditrack-reminder'
+          });
+        }).catch(() => {
+          new Notification(title, { body, icon });
+        });
+      } else {
+        new Notification(title, {
+          body,
+          icon,
+          badge: icon
+        });
+      }
     } catch {
-      // Fallback if Notification constructor fails (e.g. on mobile browsers requiring ServiceWorker)
+      // In-App Toast always serves as 100% reliable fallback
     }
   }
 }
@@ -100,7 +126,7 @@ export function showInAppToast(options: InAppToastOptions): void {
     <div class="toast-icon">${options.icon || '🔔'}</div>
     <div class="toast-body">
       <strong>${options.title}</strong>
-      <span>${options.message}</span>
+      ${options.message ? `<span>${options.message}</span>` : ''}
     </div>
     <div class="toast-actions">
       ${options.actionText ? `<button class="toast-btn toast-action-btn">${options.actionText}</button>` : ''}
@@ -144,6 +170,28 @@ export function showQuickToast(message: string, icon: string = '✨'): void {
   });
 }
 
+export function normalizeTimeString(timeStr: string): string {
+  if (!timeStr) return '';
+  const trimmed = timeStr.trim();
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const meridiem = match[3]?.toUpperCase();
+    if (meridiem === 'PM' && hours < 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+  }
+  return trimmed;
+}
+
+export function stopReminderScheduler(): void {
+  if (reminderInterval !== null) {
+    window.clearInterval(reminderInterval);
+    reminderInterval = null;
+  }
+}
+
 export function startReminderScheduler(
   getPendingMeds: () => PendingMedItem[],
   callbacks?: {
@@ -151,22 +199,23 @@ export function startReminderScheduler(
     onAddWater?: () => void;
   }
 ): void {
-  if (reminderInterval !== null) {
-    window.clearInterval(reminderInterval);
-  }
+  stopReminderScheduler();
 
   const checkReminders = () => {
     const now = new Date();
+    const todayDateStr = now.toISOString().split('T')[0];
     const currentHour = now.getHours();
-    const currentMinuteNum = now.getMinutes();
-    const hours = String(currentHour).padStart(2, '0');
-    const minutes = String(currentMinuteNum).padStart(2, '0');
-    const currentHM = `${hours}:${minutes}`;
+    const currentMinute = now.getMinutes();
+    const nowMinutes = currentHour * 60 + currentMinute;
 
     // 1. Water Reminder Check (Every 2 hours during daytime 08:00 - 22:00)
-    if (currentHour >= 8 && currentHour <= 22 && currentHour % 2 === 0) {
-      if (lastFiredWaterHour !== currentHour && currentMinuteNum <= 5) {
-        lastFiredWaterHour = currentHour;
+    // 2-hour daytime blocks: 8, 10, 12, 14, 16, 18, 20, 22
+    if (currentHour >= 8 && currentHour <= 22) {
+      const waterBlockHour = Math.floor(currentHour / 2) * 2;
+      const waterBlockKey = `${todayDateStr}_water_${waterBlockHour}`;
+      
+      if (!firedWaterBlocks.has(waterBlockKey)) {
+        firedWaterBlocks.add(waterBlockKey);
         const title = t('water_reminder_title');
         const body = t('water_reminder_body');
         sendLocalNotification(title, body);
@@ -180,30 +229,57 @@ export function startReminderScheduler(
       }
     }
 
-    // 2. Medicine Reminder Check (At specific scheduled dose times)
-    if (currentHM === lastFiredMinute) return;
-
+    // 2. Medicine Reminder Check (At designated scheduled dose times with grace period)
     const pending = getPendingMeds();
-    const dueMeds = pending.filter(m => m.time === currentHM);
+    
+    pending.forEach((med) => {
+      const normTime = normalizeTimeString(med.time);
+      if (!normTime || !normTime.includes(':')) return;
 
-    if (dueMeds.length > 0) {
-      lastFiredMinute = currentHM;
-      dueMeds.forEach(med => {
+      const [medH, medM] = normTime.split(':').map(Number);
+      if (isNaN(medH) || isNaN(medM)) return;
+
+      const medMinutes = medH * 60 + medM;
+      const diff = nowMinutes - medMinutes;
+      const remindedKey = `${todayDateStr}_med_${med.id}_${med.doseIndex}`;
+
+      // Trigger if due now OR within 20 minutes grace period, and not yet reminded today
+      if (diff >= 0 && diff <= 20 && !firedMedReminders.has(remindedKey)) {
+        firedMedReminders.add(remindedKey);
         const title = t('med_reminder_title');
         const body = t('med_reminder_body', { name: med.name, dosage: med.dosage });
+        
         sendLocalNotification(title, body);
         showInAppToast({
           icon: '💊',
           title,
-          message: `${med.name} (${med.dosage})`,
+          message: `${med.name} (${med.dosage}) · ${med.time}`,
           actionText: t('toast_mark_taken_btn'),
           onAction: () => callbacks?.onTakeMed?.(med.id, med.doseIndex)
         });
-      });
-    }
+      }
+    });
   };
 
-  // Check immediately and then every 20 seconds
+  // Run initial check immediately
   checkReminders();
-  reminderInterval = window.setInterval(checkReminders, 20000);
+  // Check every 15 seconds for precision
+  reminderInterval = window.setInterval(checkReminders, 15000);
+}
+
+export function triggerTestReminder(callbacks?: {
+  onTakeMed?: (id: string, doseIndex: number) => void;
+  onAddWater?: () => void;
+}): void {
+  const title = t('test_reminder_btn');
+  const body = t('test_reminder_toast');
+  sendLocalNotification(title, body);
+  showInAppToast({
+    icon: '🔔',
+    title,
+    message: body,
+    actionText: t('toast_add_water_btn'),
+    onAction: () => callbacks?.onAddWater?.(),
+    durationMs: 5000
+  });
 }

@@ -50,6 +50,29 @@ export function updateMedicineInventory(id: string, delta: number): void {
   }
 }
 
+export function updateMedicine(id: string, updates: Partial<Omit<Medicine, 'id' | 'createdAt'>>): Medicine | null {
+  const index = appData.medicines.findIndex((m) => m.id === id);
+  if (index === -1) return null;
+
+  const existing = appData.medicines[index];
+  const times = updates.times && updates.times.length > 0
+    ? updates.times
+    : (updates.time ? [updates.time] : (existing.times && existing.times.length > 0 ? existing.times : [existing.time]));
+  const dosesPerDay = updates.dosesPerDay || times.length;
+
+  const updatedMedicine: Medicine = {
+    ...existing,
+    ...updates,
+    times,
+    time: times[0] || updates.time || existing.time,
+    dosesPerDay,
+  };
+
+  appData.medicines[index] = updatedMedicine;
+  saveAppData(appData);
+  return updatedMedicine;
+}
+
 export function deleteMedicine(id: string): void {
   appData.medicines = appData.medicines.filter((m) => m.id !== id);
   appData.medicineLogs = appData.medicineLogs.filter((log) => log.medicineId !== id);
