@@ -35,6 +35,10 @@ export function addAppointment(appointment: Omit<Appointment, 'id' | 'createdAt'
   return newAppointment;
 }
 
+export function getAppointmentById(id: string): Appointment | undefined {
+  return appData.appointments.find((a) => a.id === id);
+}
+
 export function updateAppointment(id: string, updates: Partial<Appointment>): void {
   const appointment = appData.appointments.find((a) => a.id === id);
   if (appointment) {

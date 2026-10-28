@@ -1,6 +1,6 @@
 // src/main.ts
 import './style.css'
-import { Medicine, MoodEntry, VitalsLog, SleepLog, Appointment } from './types'
+import { Medicine, MoodEntry, VitalsLog, SleepLog, Appointment, MedicalAttachment } from './types'
 import { 
   getMedicines, 
   deleteMedicine,
@@ -43,7 +43,10 @@ import {
 import { 
   initAppointmentsModule, 
   getUpcomingAppointments, 
+  getPastAppointments,
+  getAppointmentById,
   addAppointment, 
+  updateAppointment,
   deleteAppointment, 
   formatAppointmentDisplay, 
   getNextAppointment 
@@ -124,6 +127,72 @@ function syncReminderScheduler() {
   } else {
     stopReminderScheduler();
   }
+}
+
+// Appointment & Attachment State
+let activeApptTab: 'upcoming' | 'past' = 'upcoming';
+let stagedAppointmentAttachments: MedicalAttachment[] = [];
+
+/**
+ * Compresses an image file client-side to ensure it stays well under localStorage quotas
+ * Max dimensions 1280px, quality 0.75 JPEG
+ */
+function compressImageFile(file: File, maxDim = 1280, quality = 0.75): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderStagedApptAttachments(): void {
+  const container = document.getElementById('appt-staged-attachments');
+  if (!container) return;
+  if (stagedAppointmentAttachments.length === 0) {
+    container.innerHTML = `<span class="empty-attachments-hint">${t('no_attachments')}</span>`;
+    return;
+  }
+  container.innerHTML = stagedAppointmentAttachments.map((att, idx) => `
+    <div class="staged-att-item ${att.type}">
+      <div class="staged-att-preview">
+        <img src="${att.dataUrl}" alt="${escapeHtml(att.name)}" />
+      </div>
+      <div class="staged-att-info">
+        <span class="staged-att-badge ${att.type}">${att.type === 'prescription' ? t('attachment_prescription') : t('attachment_report')}</span>
+        <span class="staged-att-name" title="${escapeHtml(att.name)}">${escapeHtml(att.name)}</span>
+      </div>
+      <button type="button" class="btn-remove-staged-att" data-idx="${idx}" title="Remove">✕</button>
+    </div>
+  `).join('');
 }
 
 // Load saved state
@@ -220,6 +289,8 @@ function renderApp() {
   const latestSleep = getLatestSleep();
   const nextAppt = getNextAppointment();
   const upcomingAppts = getUpcomingAppointments();
+  const pastAppts = getPastAppointments();
+  const displayedAppts = activeApptTab === 'upcoming' ? upcomingAppts : pastAppts;
   
   // Calculate stats
   const medProgress = getTodaysProgress();
@@ -297,21 +368,40 @@ function renderApp() {
     `;
   }).join('');
 
-  const appointmentListHTML = upcomingAppts.map(appt => {
+  const appointmentListHTML = displayedAppts.map(appt => {
     const display = formatAppointmentDisplay(appt);
+    const hasAttachments = appt.attachments && appt.attachments.length > 0;
     return `
-      <div class="appointment-item">
-        <div class="appt-info">
-          <div class="appt-title-row">
-            <strong>${escapeHtml(appt.title)}</strong>
-            <span class="appt-doctor">${t('with_doctor', { doctor: escapeHtml(appt.doctor) })}</span>
+      <div class="appointment-item ${appt.completed ? 'completed' : ''}">
+        <div class="appt-main-row">
+          <div class="appt-info">
+            <div class="appt-title-row">
+              <strong>${escapeHtml(appt.title)}</strong>
+              <span class="appt-doctor">${t('with_doctor', { doctor: escapeHtml(appt.doctor) })}</span>
+            </div>
+            <div class="appt-meta">📅 ${display.dateDisplay} at ${display.timeDisplay} ${appt.location ? `· 📍 ${escapeHtml(appt.location)}` : ''}</div>
+            ${appt.notes ? `<div class="appt-notes-preview">💬 ${escapeHtml(appt.notes)}</div>` : ''}
           </div>
-          <div class="appt-meta">📅 ${display.dateDisplay} at ${display.timeDisplay} ${appt.location ? `· 📍 ${escapeHtml(appt.location)}` : ''}</div>
+          <div class="appt-actions">
+            ${activeApptTab === 'upcoming' ? `<span class="countdown-badge">${display.countdown}</span>` : `<span class="past-badge">✓ ${t('past_tab')}</span>`}
+            <button class="edit-appt-btn" data-id="${appt.id}" title="${t('edit_appt_btn')}" aria-label="${t('edit_appt_btn')}">✏️</button>
+            <button class="delete-appt-btn" data-id="${appt.id}" title="${t('delete_appt_title')}" aria-label="${t('delete_appt_title')}">🗑️</button>
+          </div>
         </div>
-        <div class="appt-actions">
-          <span class="countdown-badge">${display.countdown}</span>
-          <button class="delete-appt-btn" data-id="${appt.id}" title="${t('delete_appt_title')}" aria-label="${t('delete_appt_title')}">🗑️</button>
-        </div>
+
+        ${hasAttachments ? `
+          <div class="appt-attachments-strip">
+            <span class="attachments-label">📎 ${appt.attachments!.length} ${t('prescriptions_and_reports')}:</span>
+            <div class="attachments-thumbs">
+              ${appt.attachments!.map(att => `
+                <button type="button" class="attachment-thumb-pill ${att.type}" data-appt-id="${appt.id}" data-att-id="${att.id}" title="${t('view_document')}: ${escapeHtml(att.name)}">
+                  <span class="att-type-icon">${att.type === 'prescription' ? '📄' : '🧪'}</span>
+                  <span class="att-name">${escapeHtml(att.name)}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
@@ -650,12 +740,22 @@ function renderApp() {
           <div class="section-heading">
             <div><p class="eyebrow">${t('appts_eyebrow')}</p><h2>${t('appts_title')}</h2></div>
             <div style="display:flex; align-items:center; gap:8px;">
-              <span class="progress-pill">${t('appts_scheduled', { count: formatNumber(upcomingAppts.length) })}</span>
               <button class="btn-primary" id="appt-heading-add-btn" style="padding:6px 12px; font-size:0.8rem; border-radius:8px;">＋ ${t('add_visit_btn')}</button>
             </div>
           </div>
+
+          <!-- Appointments Switcher (Upcoming vs Past Records) -->
+          <div class="appt-tabs-row" role="tablist">
+            <button type="button" class="appt-tab-btn ${activeApptTab === 'upcoming' ? 'active' : ''}" data-appt-tab="upcoming">
+              ${t('upcoming_tab')} (${formatNumber(upcomingAppts.length)})
+            </button>
+            <button type="button" class="appt-tab-btn ${activeApptTab === 'past' ? 'active' : ''}" data-appt-tab="past">
+              ${t('past_tab')} (${formatNumber(pastAppts.length)})
+            </button>
+          </div>
+
           <div id="appointments-list">
-            ${upcomingAppts.length === 0 ? `<p class="empty-state">${t('no_appts')}</p>` : appointmentListHTML}
+            ${displayedAppts.length === 0 ? `<p class="empty-state">${activeApptTab === 'upcoming' ? t('no_appts') : t('no_past_appts')}</p>` : appointmentListHTML}
           </div>
         </section>
       </div>
@@ -973,21 +1073,74 @@ function renderApp() {
       </div>
     </dialog>
     
-    <!-- Appointment Modal -->
-    <dialog id="appointment-modal" class="modal">
-      <div class="modal-content">
-        <h3>${t('appt_modal_title')}</h3>
+    <!-- Appointment Modal (Unified Add/Edit with Attachments) -->
+    <dialog id="appointment-modal" class="modal appt-modal-dialog">
+      <div class="modal-content appt-modal-content">
+        <div class="appt-modal-header">
+          <h3 id="appt-modal-title">${t('appt_modal_title')}</h3>
+          <button type="button" class="modal-close-icon" id="close-appt-x" aria-label="Close">✕</button>
+        </div>
         <form id="appointment-form">
-          <label>${t('appt_title_field')}<input type="text" id="appt-title" placeholder="${t('appt_title_ph')}" required /></label>
-          <label>${t('appt_doctor_field')}<input type="text" id="appt-doctor" placeholder="${t('appt_doctor_ph')}" required /></label>
-          <label>${t('appt_date_field')}<input type="date" id="appt-date" value="${getTodayDateString()}" required /></label>
-          <label>${t('appt_time_field')}<input type="time" id="appt-time" value="10:00" required /></label>
+          <input type="hidden" id="appt-id" value="" />
+          <div class="form-row">
+            <label>${t('appt_title_field')}<input type="text" id="appt-title" placeholder="${t('appt_title_ph')}" required /></label>
+            <label>${t('appt_doctor_field')}<input type="text" id="appt-doctor" placeholder="${t('appt_doctor_ph')}" required /></label>
+          </div>
+          <div class="form-row">
+            <label>${t('appt_date_field')}<input type="date" id="appt-date" value="${getTodayDateString()}" required /></label>
+            <label>${t('appt_time_field')}<input type="time" id="appt-time" value="10:00" required /></label>
+          </div>
           <label>${t('appt_location_field')}<input type="text" id="appt-location" placeholder="${t('appt_location_ph')}" /></label>
-          <div class="modal-actions">
+          <label>${t('appt_notes_field')}<textarea id="appt-notes" rows="2" placeholder="${t('appt_notes_ph')}"></textarea></label>
+
+          <!-- Attachments Section (Prescriptions & Reports) -->
+          <div class="appt-modal-attachments">
+            <div class="attachments-header-row">
+              <span class="attachments-section-title">📎 ${t('prescriptions_and_reports')}</span>
+              <div class="att-upload-buttons">
+                <label class="btn-att-upload prescription" for="appt-prescription-input" role="button" tabindex="0">
+                  ${t('add_prescription_btn')}
+                </label>
+                <input type="file" id="appt-prescription-input" accept="image/*" style="display:none;" />
+
+                <label class="btn-att-upload report" for="appt-report-input" role="button" tabindex="0">
+                  ${t('add_report_btn')}
+                </label>
+                <input type="file" id="appt-report-input" accept="image/*" style="display:none;" />
+              </div>
+            </div>
+
+            <!-- Staged Attachments Container -->
+            <div id="appt-staged-attachments" class="staged-attachments-list"></div>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 20px;">
             <button type="button" class="btn-secondary" id="close-appt-btn">${t('cancel_btn')}</button>
-            <button type="submit" class="btn-primary">${t('add_visit_btn')}</button>
+            <button type="submit" class="btn-primary" id="appt-submit-btn">${t('add_visit_btn')}</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <!-- Document Viewer Modal (Lightbox) -->
+    <dialog id="document-viewer-modal" class="modal doc-viewer-dialog">
+      <div class="modal-content doc-viewer-content">
+        <div class="doc-viewer-header">
+          <div class="doc-viewer-meta">
+            <span class="doc-viewer-badge" id="doc-viewer-badge"></span>
+            <h4 class="doc-viewer-title" id="doc-viewer-title"></h4>
+            <span class="doc-viewer-sub" id="doc-viewer-sub"></span>
+          </div>
+          <button type="button" class="modal-close-icon" id="close-doc-viewer-btn" aria-label="Close">✕</button>
+        </div>
+        <div class="doc-viewer-body">
+          <img id="doc-viewer-img" src="" alt="Medical document" />
+        </div>
+        <div class="doc-viewer-actions">
+          <a id="doc-viewer-download-btn" class="btn-primary" download="medical-document.jpg" href="">
+            📥 ${t('download_file')}
+          </a>
+        </div>
       </div>
     </dialog>
 
@@ -1526,8 +1679,46 @@ function attachEventListeners() {
     });
   });
 
-  // Appointment Delete
-  document.querySelectorAll('.delete-appt-btn').forEach(btn => {
+  // Appointments Switcher Tabs (Upcoming vs Past)
+  document.querySelectorAll<HTMLButtonElement>('.appt-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-appt-tab') as 'upcoming' | 'past';
+      if (tab && activeApptTab !== tab) {
+        activeApptTab = tab;
+        renderApp();
+      }
+    });
+  });
+
+  // Appointment Edit Button
+  document.querySelectorAll<HTMLButtonElement>('.edit-appt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id');
+      if (!id) return;
+      const appt = getAppointmentById(id);
+      if (!appt) return;
+
+      const titleEl = document.getElementById('appt-modal-title');
+      const submitBtn = document.getElementById('appt-submit-btn');
+      if (titleEl) titleEl.textContent = t('edit_appt_modal_title');
+      if (submitBtn) submitBtn.textContent = t('save_changes_btn');
+
+      (document.getElementById('appt-id') as HTMLInputElement).value = appt.id;
+      (document.getElementById('appt-title') as HTMLInputElement).value = appt.title;
+      (document.getElementById('appt-doctor') as HTMLInputElement).value = appt.doctor;
+      (document.getElementById('appt-date') as HTMLInputElement).value = appt.date;
+      (document.getElementById('appt-time') as HTMLInputElement).value = appt.time;
+      (document.getElementById('appt-location') as HTMLInputElement).value = appt.location || '';
+      (document.getElementById('appt-notes') as HTMLTextAreaElement).value = appt.notes || '';
+
+      stagedAppointmentAttachments = [...(appt.attachments || [])];
+      renderStagedApptAttachments();
+      apptModal?.showModal();
+    });
+  });
+
+  // Appointment Delete Button
+  document.querySelectorAll<HTMLButtonElement>('.delete-appt-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = (e.currentTarget as HTMLButtonElement).dataset.id!;
       const confirmText = appState.language === 'bn' ? 'এই অ্যাপয়েন্টমেন্টটি মুছতে চান?' : 'Delete this appointment?';
@@ -1535,6 +1726,38 @@ function attachEventListeners() {
         deleteAppointment(id);
         renderApp();
       }
+    });
+  });
+
+  // Document Viewer Lightbox Opener
+  document.querySelectorAll<HTMLButtonElement>('.attachment-thumb-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const apptId = btn.getAttribute('data-appt-id');
+      const attId = btn.getAttribute('data-att-id');
+      if (!apptId || !attId) return;
+      const appt = getAppointmentById(apptId);
+      const att = appt?.attachments?.find(a => a.id === attId);
+      if (!appt || !att) return;
+
+      const badge = document.getElementById('doc-viewer-badge');
+      const title = document.getElementById('doc-viewer-title');
+      const sub = document.getElementById('doc-viewer-sub');
+      const img = document.getElementById('doc-viewer-img') as HTMLImageElement;
+      const downloadBtn = document.getElementById('doc-viewer-download-btn') as HTMLAnchorElement;
+
+      if (badge) {
+        badge.textContent = att.type === 'prescription' ? `📄 ${t('attachment_prescription')}` : `🧪 ${t('attachment_report')}`;
+        badge.className = `doc-viewer-badge ${att.type}`;
+      }
+      if (title) title.textContent = att.name;
+      if (sub) sub.textContent = `${appt.title} · ${t('with_doctor', { doctor: appt.doctor })}`;
+      if (img) img.src = att.dataUrl;
+      if (downloadBtn) {
+        downloadBtn.href = att.dataUrl;
+        downloadBtn.download = `${att.name.replace(/\s+/g, '_')}_${att.type}.jpg`;
+      }
+
+      docViewerModal?.showModal();
     });
   });
 
@@ -1604,9 +1827,10 @@ function attachEventListeners() {
   const profileModal = document.getElementById('profile-modal') as HTMLDialogElement;
   const goalModal = document.getElementById('goal-modal') as HTMLDialogElement;
   const reportModal = document.getElementById('report-modal') as HTMLDialogElement;
+  const docViewerModal = document.getElementById('document-viewer-modal') as HTMLDialogElement;
 
   // Backdrop click to close modals
-  [vitalsModal, sleepModal, apptModal, profileModal, goalModal, reportModal, editMedModal].forEach(modal => {
+  [vitalsModal, sleepModal, apptModal, profileModal, goalModal, reportModal, editMedModal, docViewerModal].forEach(modal => {
     modal?.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.close();
@@ -1899,35 +2123,109 @@ function attachEventListeners() {
     renderApp();
   });
 
-  // Appointment Modal
-  const openApptModal = () => {
+  // Appointment Modal (Add & Edit Handlers)
+  const openAddApptModal = () => {
     (document.getElementById('appointment-form') as HTMLFormElement)?.reset();
+    (document.getElementById('appt-id') as HTMLInputElement).value = '';
+    (document.getElementById('appt-modal-title') as HTMLElement).textContent = t('appt_modal_title');
+    (document.getElementById('appt-submit-btn') as HTMLElement).textContent = t('add_visit_btn');
     (document.getElementById('appt-date') as HTMLInputElement).value = getTodayDateString();
+    stagedAppointmentAttachments = [];
+    renderStagedApptAttachments();
     apptModal?.showModal();
   };
-  document.getElementById('show-appointment-btn')?.addEventListener('click', openApptModal);
-  document.getElementById('appt-heading-add-btn')?.addEventListener('click', openApptModal);
+
+  document.getElementById('show-appointment-btn')?.addEventListener('click', openAddApptModal);
+  document.getElementById('appt-heading-add-btn')?.addEventListener('click', openAddApptModal);
 
   document.getElementById('close-appt-btn')?.addEventListener('click', () => {
     apptModal?.close();
   });
+  document.getElementById('close-appt-x')?.addEventListener('click', () => {
+    apptModal?.close();
+  });
+  document.getElementById('close-doc-viewer-btn')?.addEventListener('click', () => {
+    docViewerModal?.close();
+  });
 
+  // Staged Attachment Upload Handlers
+  const handleAttachmentUpload = async (file: File | undefined, type: 'prescription' | 'report') => {
+    if (!file) return;
+    try {
+      const dataUrl = await compressImageFile(file);
+      const newAtt: MedicalAttachment = {
+        id: 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        name: file.name.replace(/\.[^/.]+$/, "") || (type === 'prescription' ? t('attachment_prescription') : t('attachment_report')),
+        type,
+        dataUrl,
+        createdAt: new Date().toISOString()
+      };
+      stagedAppointmentAttachments.push(newAtt);
+      renderStagedApptAttachments();
+    } catch (err) {
+      console.error('Image compression failed:', err);
+      alert(appState.language === 'bn' ? 'ছবিটি লোড করা সম্ভব হয়নি। অনুগ্রহ করে অন্য ছবি নির্বাচন করুন।' : 'Failed to process image. Please try another file.');
+    }
+  };
+
+  document.getElementById('appt-prescription-input')?.addEventListener('change', (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) handleAttachmentUpload(file, 'prescription');
+    (e.target as HTMLInputElement).value = '';
+  });
+
+  document.getElementById('appt-report-input')?.addEventListener('change', (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) handleAttachmentUpload(file, 'report');
+    (e.target as HTMLInputElement).value = '';
+  });
+
+  document.getElementById('appt-staged-attachments')?.addEventListener('click', (e) => {
+    const target = (e.target as HTMLElement).closest('.btn-remove-staged-att') as HTMLButtonElement | null;
+    if (target) {
+      const idx = Number(target.getAttribute('data-idx'));
+      if (!isNaN(idx) && idx >= 0 && idx < stagedAppointmentAttachments.length) {
+        stagedAppointmentAttachments.splice(idx, 1);
+        renderStagedApptAttachments();
+      }
+    }
+  });
+
+  // Appointment Form Submission (Add or Edit)
   document.getElementById('appointment-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
+    const id = (document.getElementById('appt-id') as HTMLInputElement).value;
     const title = (document.getElementById('appt-title') as HTMLInputElement).value.trim();
     const doctor = (document.getElementById('appt-doctor') as HTMLInputElement).value.trim();
     const date = (document.getElementById('appt-date') as HTMLInputElement).value;
     const time = (document.getElementById('appt-time') as HTMLInputElement).value;
     const location = (document.getElementById('appt-location') as HTMLInputElement).value.trim();
-    
-    addAppointment({
-      title,
-      doctor,
-      date,
-      time,
-      location,
-      completed: false
-    });
+    const notes = (document.getElementById('appt-notes') as HTMLTextAreaElement).value.trim();
+
+    if (id) {
+      updateAppointment(id, {
+        title,
+        doctor,
+        date,
+        time,
+        location,
+        notes,
+        attachments: stagedAppointmentAttachments
+      });
+      showQuickToast(t('appt_updated_toast'), '✨');
+    } else {
+      addAppointment({
+        title,
+        doctor,
+        location,
+        date,
+        time,
+        notes,
+        attachments: stagedAppointmentAttachments,
+        completed: false
+      });
+      showQuickToast(t('add_visit_btn'), '✨');
+    }
     
     apptModal?.close();
     renderApp();

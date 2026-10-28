@@ -62,6 +62,14 @@ export interface SleepLog {
   notes?: string;
 }
 
+export interface MedicalAttachment {
+  id: string;
+  name: string;
+  type: 'prescription' | 'report';
+  dataUrl: string; // Compressed Base64 data
+  createdAt: string;
+}
+
 export interface Appointment {
   id: string;
   title: string;
@@ -70,6 +78,7 @@ export interface Appointment {
   date: string;
   time: string;
   notes?: string;
+  attachments?: MedicalAttachment[];
   completed: boolean;
   createdAt: string;
 }
