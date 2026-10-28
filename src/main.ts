@@ -49,7 +49,9 @@ import {
   updateAppointment,
   deleteAppointment, 
   formatAppointmentDisplay, 
-  getNextAppointment 
+  getNextAppointment,
+  completeAppointment,
+  isAppointmentDueOrPast
 } from './modules/appointments'
 import { getHealthInsight, formatTime, escapeHtml } from './utils'
 import { 
@@ -121,8 +123,16 @@ function syncReminderScheduler() {
           addWater(250);
           showQuickToast(t('toast_water_success'), '💧');
           renderApp();
+        },
+        onViewAppt: (id: string) => {
+          if (appState.activeTab !== 'health') {
+            appState.activeTab = 'health';
+            renderApp();
+          }
+          openAppointmentDetailsModal(id);
         }
-      }
+      },
+      () => getUpcomingAppointments()
     );
   } else {
     stopReminderScheduler();
@@ -193,6 +203,40 @@ function renderStagedApptAttachments(): void {
       <button type="button" class="btn-remove-staged-att" data-idx="${idx}" title="Remove">✕</button>
     </div>
   `).join('');
+}
+
+function openAppointmentDetailsModal(id: string): void {
+  const appt = getAppointmentById(id);
+  if (!appt) return;
+
+  const titleEl = document.getElementById('appt-modal-title');
+  const submitBtn = document.getElementById('appt-submit-btn');
+  if (titleEl) titleEl.textContent = t('edit_appt_modal_title');
+  if (submitBtn) submitBtn.textContent = t('save_changes_btn');
+
+  const idInput = document.getElementById('appt-id') as HTMLInputElement | null;
+  const titleInput = document.getElementById('appt-title') as HTMLInputElement | null;
+  const doctorInput = document.getElementById('appt-doctor') as HTMLInputElement | null;
+  const dateInput = document.getElementById('appt-date') as HTMLInputElement | null;
+  const timeInput = document.getElementById('appt-time') as HTMLInputElement | null;
+  const locationInput = document.getElementById('appt-location') as HTMLInputElement | null;
+  const notesInput = document.getElementById('appt-notes') as HTMLTextAreaElement | null;
+  const completedInput = document.getElementById('appt-completed') as HTMLInputElement | null;
+
+  if (idInput) idInput.value = appt.id;
+  if (titleInput) titleInput.value = appt.title;
+  if (doctorInput) doctorInput.value = appt.doctor;
+  if (dateInput) dateInput.value = appt.date;
+  if (timeInput) timeInput.value = appt.time;
+  if (locationInput) locationInput.value = appt.location || '';
+  if (notesInput) notesInput.value = appt.notes || '';
+  if (completedInput) completedInput.checked = !!appt.completed;
+
+  stagedAppointmentAttachments = [...(appt.attachments || [])];
+  renderStagedApptAttachments();
+
+  const apptModal = document.getElementById('appointment-modal') as HTMLDialogElement | null;
+  apptModal?.showModal();
 }
 
 // Load saved state
@@ -293,7 +337,9 @@ function renderApp() {
   const displayedAppts = activeApptTab === 'upcoming' ? upcomingAppts : pastAppts;
   const todayDateStr = getTodayDateString();
   const todayAppt = upcomingAppts.find(a => a.date === todayDateStr);
-  const upcomingSoonAppt = !todayAppt ? upcomingAppts.find(a => {
+  const todayCompletedAppt = pastAppts.find(a => a.date === todayDateStr && a.completed);
+  const isTodayApptDue = todayAppt ? isAppointmentDueOrPast(todayAppt.date, todayAppt.time) : false;
+  const upcomingSoonAppt = (!todayAppt && !todayCompletedAppt) ? upcomingAppts.find(a => {
     const tDate = new Date(a.date).getTime();
     const nDate = new Date(todayDateStr).getTime();
     const diffDays = Math.ceil((tDate - nDate) / (1000 * 60 * 60 * 24));
@@ -379,8 +425,10 @@ function renderApp() {
   const appointmentListHTML = displayedAppts.map(appt => {
     const display = formatAppointmentDisplay(appt);
     const hasAttachments = appt.attachments && appt.attachments.length > 0;
+    const isDue = !appt.completed && isAppointmentDueOrPast(appt.date, appt.time);
+
     return `
-      <div class="appointment-item ${appt.completed ? 'completed' : ''}">
+      <div class="appointment-item ${appt.completed ? 'completed' : ''} ${isDue ? 'item-due' : ''}">
         <div class="appt-main-row">
           <div class="appt-info">
             <div class="appt-title-row">
@@ -391,11 +439,34 @@ function renderApp() {
             ${appt.notes ? `<div class="appt-notes-preview">💬 ${escapeHtml(appt.notes)}</div>` : ''}
           </div>
           <div class="appt-actions">
-            ${activeApptTab === 'upcoming' ? `<span class="countdown-badge">${display.countdown}</span>` : `<span class="past-badge">✓ ${t('past_tab')}</span>`}
+            ${activeApptTab === 'upcoming' 
+              ? (isDue 
+                  ? `<span class="countdown-badge due-badge">⏰ ${t('due_time_badge')}</span>` 
+                  : `<span class="countdown-badge">${display.countdown}</span>`
+                )
+              : `<span class="past-badge completed-badge">✓ ${t('appt_status_completed')}</span>`
+            }
+            ${!appt.completed ? `
+              <button class="action-btn-pill btn-mark-appt-done" data-id="${appt.id}" title="${t('btn_mark_appt_done')}">✓ ${t('appt_status_completed')}</button>
+            ` : `
+              <button class="action-btn-pill btn-undo-appt-done" data-id="${appt.id}" title="${t('btn_mark_appt_undone')}">${t('btn_mark_appt_undone')}</button>
+            `}
             <button class="edit-appt-btn" data-id="${appt.id}" title="${t('edit_appt_btn')}" aria-label="${t('edit_appt_btn')}">✏️</button>
             <button class="delete-appt-btn" data-id="${appt.id}" title="${t('delete_appt_title')}" aria-label="${t('delete_appt_title')}">🗑️</button>
           </div>
         </div>
+
+        ${isDue ? `
+          <div class="appt-completion-banner">
+            <div class="completion-banner-text">
+              <span class="banner-pulse-dot"></span>
+              <span><strong>${t('prompt_doctor_visit_completed')}</strong></span>
+            </div>
+            <button type="button" class="btn-banner-done btn-mark-appt-done" data-id="${appt.id}">
+              ${t('btn_mark_appt_done')}
+            </button>
+          </div>
+        ` : ''}
 
         ${hasAttachments ? `
           <div class="appt-attachments-strip">
@@ -500,15 +571,15 @@ function renderApp() {
           </div>
         </div>
 
-        <!-- Today's Scheduled Doctor Consultation Spotlight (Urgent & Prominent) -->
+        <!-- Today's Scheduled Doctor Consultation Spotlight -->
         ${todayAppt ? `
-          <div class="today-appointment-spotlight">
-            <div class="appt-spotlight-badge">
-              <span class="pulse-dot"></span>
-              <span>⭐ ${t('today_appt_badge')}</span>
+          <div class="today-appointment-spotlight ${isTodayApptDue ? 'spotlight-due' : ''}">
+            <div class="appt-spotlight-badge ${isTodayApptDue ? 'badge-due' : ''}">
+              <span class="pulse-dot ${isTodayApptDue ? 'pulse-amber' : ''}"></span>
+              <span>${isTodayApptDue ? `⏰ ${t('due_time_badge')}` : `⭐ ${t('today_appt_badge')}`}</span>
             </div>
             <div class="appt-spotlight-content">
-              <div class="appt-spotlight-icon">🩺</div>
+              <div class="appt-spotlight-icon">${isTodayApptDue ? '🩺' : '🏥'}</div>
               <div class="appt-spotlight-details">
                 <h3 class="appt-spotlight-title">${escapeHtml(todayAppt.title)}</h3>
                 <p class="appt-spotlight-doctor">${t('with_doctor', { doctor: escapeHtml(todayAppt.doctor) })}</p>
@@ -517,12 +588,34 @@ function renderApp() {
                   ${todayAppt.location ? `<span>📍 ${escapeHtml(todayAppt.location)}</span>` : ''}
                   ${todayAppt.attachments && todayAppt.attachments.length > 0 ? `<span>📎 ${formatNumber(todayAppt.attachments.length)} ${t('prescriptions_and_reports')}</span>` : ''}
                 </div>
+                ${isTodayApptDue ? `
+                  <div class="spotlight-completion-question">
+                    <span class="question-pill">❓ ${t('prompt_doctor_visit_completed')}</span>
+                  </div>
+                ` : ''}
               </div>
               <div class="appt-spotlight-actions">
+                <button class="btn-spotlight-done btn-mark-appt-done" data-id="${todayAppt.id}">
+                  ${t('btn_mark_appt_done')}
+                </button>
                 <button class="btn-spotlight-view" id="view-today-appt-btn" data-id="${todayAppt.id}">
                   ${t('view_details_btn')} →
                 </button>
               </div>
+            </div>
+          </div>
+        ` : (todayCompletedAppt ? `
+          <!-- Today's Consultation Completed Banner -->
+          <div class="today-appointment-completed-banner">
+            <div class="completed-banner-icon">✅</div>
+            <div class="completed-banner-info">
+              <strong>${t('today_appt_done_banner')}</strong>
+              <span>${escapeHtml(todayCompletedAppt.title)} (${escapeHtml(todayCompletedAppt.doctor)}) ${todayCompletedAppt.attachments?.length ? `· 📎 ${formatNumber(todayCompletedAppt.attachments.length)} ${t('prescriptions_and_reports')}` : ''}</span>
+            </div>
+            <div class="completed-banner-actions">
+              <button class="btn-completed-view" id="view-completed-today-btn" data-id="${todayCompletedAppt.id}">
+                ${t('view_records_btn')} →
+              </button>
             </div>
           </div>
         ` : (upcomingSoonAppt ? `
@@ -535,7 +628,7 @@ function renderApp() {
               ${t('view_btn')} →
             </button>
           </div>
-        ` : '')}
+        ` : ''))}
 
         <!-- Next Dose Spotlight Banner (if any pending medicine) -->
         ${nextMedicine ? `
@@ -1148,6 +1241,14 @@ function renderApp() {
           <label>${t('appt_location_field')}<input type="text" id="appt-location" placeholder="${t('appt_location_ph')}" /></label>
           <label>${t('appt_notes_field')}<textarea id="appt-notes" rows="2" placeholder="${t('appt_notes_ph')}"></textarea></label>
 
+          <!-- Completion Status Checkbox -->
+          <div class="appt-completion-checkbox-row">
+            <label class="appt-checkbox-label">
+              <input type="checkbox" id="appt-completed" />
+              <span>✓ ${t('appt_status_completed')} (${t('prompt_doctor_visit_completed')})</span>
+            </label>
+          </div>
+
           <!-- Attachments Section (Prescriptions & Reports) -->
           <div class="appt-modal-attachments">
             <div class="attachments-header-row">
@@ -1745,34 +1846,38 @@ function attachEventListeners() {
     });
   });
 
-  // Appointment Modal Opener (by ID)
-  const openAppointmentDetailsModal = (id: string) => {
-    const appt = getAppointmentById(id);
-    if (!appt) return;
-
-    const titleEl = document.getElementById('appt-modal-title');
-    const submitBtn = document.getElementById('appt-submit-btn');
-    if (titleEl) titleEl.textContent = t('edit_appt_modal_title');
-    if (submitBtn) submitBtn.textContent = t('save_changes_btn');
-
-    (document.getElementById('appt-id') as HTMLInputElement).value = appt.id;
-    (document.getElementById('appt-title') as HTMLInputElement).value = appt.title;
-    (document.getElementById('appt-doctor') as HTMLInputElement).value = appt.doctor;
-    (document.getElementById('appt-date') as HTMLInputElement).value = appt.date;
-    (document.getElementById('appt-time') as HTMLInputElement).value = appt.time;
-    (document.getElementById('appt-location') as HTMLInputElement).value = appt.location || '';
-    (document.getElementById('appt-notes') as HTMLTextAreaElement).value = appt.notes || '';
-
-    stagedAppointmentAttachments = [...(appt.attachments || [])];
-    renderStagedApptAttachments();
-    apptModal?.showModal();
-  };
-
   // Appointment Edit Button
   document.querySelectorAll<HTMLButtonElement>('.edit-appt-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const id = btn.getAttribute('data-id');
       if (id) openAppointmentDetailsModal(id);
+    });
+  });
+
+  // Appointment Mark Done (from Spotlight, Card Banner, or Action Pill)
+  document.querySelectorAll<HTMLButtonElement>('.btn-mark-appt-done').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-id');
+      if (id) {
+        completeAppointment(id, true);
+        showQuickToast(t('appt_completed_toast'), '🎉');
+        renderApp();
+      }
+    });
+  });
+
+  // Appointment Undo Done (restore to upcoming)
+  document.querySelectorAll<HTMLButtonElement>('.btn-undo-appt-done').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-id');
+      if (id) {
+        completeAppointment(id, false);
+        showQuickToast(t('appt_undone_toast'), '↩');
+        renderApp();
+      }
     });
   });
 
@@ -1782,6 +1887,10 @@ function attachEventListeners() {
     if (id) openAppointmentDetailsModal(id);
   });
   document.getElementById('view-next-appt-btn')?.addEventListener('click', (e) => {
+    const id = (e.currentTarget as HTMLButtonElement).dataset.id;
+    if (id) openAppointmentDetailsModal(id);
+  });
+  document.getElementById('view-completed-today-btn')?.addEventListener('click', (e) => {
     const id = (e.currentTarget as HTMLButtonElement).dataset.id;
     if (id) openAppointmentDetailsModal(id);
   });
@@ -2270,6 +2379,7 @@ function attachEventListeners() {
     const time = (document.getElementById('appt-time') as HTMLInputElement).value;
     const location = (document.getElementById('appt-location') as HTMLInputElement).value.trim();
     const notes = (document.getElementById('appt-notes') as HTMLTextAreaElement).value.trim();
+    const completed = (document.getElementById('appt-completed') as HTMLInputElement)?.checked ?? false;
 
     if (id) {
       updateAppointment(id, {
@@ -2279,6 +2389,7 @@ function attachEventListeners() {
         time,
         location,
         notes,
+        completed,
         attachments: stagedAppointmentAttachments
       });
       showQuickToast(t('appt_updated_toast'), '✨');
@@ -2291,7 +2402,7 @@ function attachEventListeners() {
         time,
         notes,
         attachments: stagedAppointmentAttachments,
-        completed: false
+        completed
       });
       showQuickToast(t('add_visit_btn'), '✨');
     }

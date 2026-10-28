@@ -4322,6 +4322,10 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 
 .appt-spotlight-actions {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .btn-spotlight-view {
@@ -4342,6 +4346,246 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   transform: translateY(-2px);
   box-shadow: 0 5px 14px rgba(13, 148, 136, 0.35);
   filter: brightness(1.05);
+}
+
+.btn-spotlight-done {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(5, 150, 105, 0.28);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-spotlight-done:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(5, 150, 105, 0.4);
+  filter: brightness(1.05);
+}
+
+.today-appointment-spotlight.spotlight-due {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(225, 29, 72, 0.08) 100%);
+  border-color: rgba(245, 158, 11, 0.55);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.12);
+}
+
+.appt-spotlight-badge.badge-due {
+  background: rgba(245, 158, 11, 0.22);
+  color: #B45309;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.pulse-dot.pulse-amber {
+  background: #EA580C;
+  box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.7);
+}
+
+.spotlight-completion-question {
+  margin-top: 8px;
+}
+
+.question-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #B45309;
+  border-radius: 99px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* Today's Appointment Completed Banner */
+.today-appointment-completed-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 18px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(13, 148, 136, 0.08) 100%);
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 3px 12px rgba(16, 185, 129, 0.06);
+  transition: all 0.2s ease;
+}
+
+.completed-banner-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.completed-banner-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.84rem;
+  color: var(--text-main);
+}
+
+.completed-banner-info strong {
+  color: #059669;
+  font-size: 0.92rem;
+}
+
+.btn-completed-view {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1.5px solid rgba(16, 185, 129, 0.5);
+  color: #059669;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-completed-view:hover {
+  background: #059669;
+  color: #FFFFFF;
+}
+
+/* Appointment Item Due & Completion Prompt Styles */
+.appointment-item.item-due {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.03) 0%, var(--bg-primary) 100%);
+}
+
+.countdown-badge.due-badge {
+  background: rgba(245, 158, 11, 0.18);
+  color: #B45309;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  font-weight: 700;
+}
+
+.appt-completion-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(234, 88, 12, 0.08) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.completion-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: var(--text-main);
+}
+
+.banner-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #EA580C;
+  animation: pulseRing 1.8s infinite;
+  flex-shrink: 0;
+}
+
+.btn-banner-done {
+  padding: 5px 12px;
+  background: #059669;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.btn-banner-done:hover {
+  background: #047857;
+}
+
+.action-btn-pill {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-btn-pill.btn-mark-appt-done {
+  border: 1px solid rgba(5, 150, 105, 0.4);
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+}
+
+.action-btn-pill.btn-mark-appt-done:hover {
+  background: #059669;
+  color: #FFFFFF;
+}
+
+.action-btn-pill.btn-undo-appt-done {
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  background: rgba(100, 116, 139, 0.08);
+  color: #64748B;
+}
+
+.action-btn-pill.btn-undo-appt-done:hover {
+  background: #64748B;
+  color: #FFFFFF;
+}
+
+.past-badge.completed-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+/* Modal Completion Checkbox */
+.appt-completion-checkbox-row {
+  margin-top: 10px;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px dashed rgba(16, 185, 129, 0.35);
+  border-radius: 10px;
+}
+
+.appt-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #059669;
+  cursor: pointer;
+}
+
+.appt-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #059669;
+  cursor: pointer;
 }
 
 /* Upcoming Visit Mini-Alert */
@@ -4390,6 +4634,57 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 
 .dark-mode .appt-spotlight-meta {
   color: #2DD4BF;
+}
+
+.dark-mode .today-appointment-spotlight.spotlight-due {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(225, 29, 72, 0.12) 100%);
+  border-color: rgba(245, 158, 11, 0.55);
+}
+
+.dark-mode .today-appointment-completed-banner {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(13, 148, 136, 0.12) 100%);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.dark-mode .completed-banner-info strong {
+  color: #34D399;
+}
+
+.dark-mode .btn-completed-view {
+  color: #34D399;
+  border-color: rgba(52, 211, 153, 0.5);
+}
+
+.dark-mode .question-pill {
+  background: rgba(245, 158, 11, 0.25);
+  color: #FCD34D;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.dark-mode .appt-completion-banner {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(234, 88, 12, 0.12) 100%);
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.dark-mode .past-badge.completed-badge {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34D399;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.dark-mode .action-btn-pill.btn-mark-appt-done {
+  background: rgba(5, 150, 105, 0.2);
+  color: #34D399;
+  border-color: rgba(5, 150, 105, 0.4);
+}
+
+.dark-mode .appt-completion-checkbox-row {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.dark-mode .appt-checkbox-label {
+  color: #34D399;
 }
 
 .dark-mode .upcoming-visit-mini-banner {

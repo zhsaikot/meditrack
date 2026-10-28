@@ -1,9 +1,36 @@
 // MediTrack - Notifications & Reminders Module
+import { Appointment } from '../types';
 import { t } from './i18n';
 
 let reminderInterval: number | null = null;
 const firedMedReminders = new Set<string>();
 const firedWaterBlocks = new Set<string>();
+
+const APPT_REMINDERS_STORAGE_KEY = 'meditrack_fired_appt_reminders';
+
+function getFiredApptReminders(): Set<string> {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(APPT_REMINDERS_STORAGE_KEY) : null;
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr);
+    }
+  } catch {}
+  return new Set<string>();
+}
+
+function saveFiredApptReminder(key: string): void {
+  const set = getFiredApptReminders();
+  set.add(key);
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const arr = Array.from(set).slice(-200);
+      localStorage.setItem(APPT_REMINDERS_STORAGE_KEY, JSON.stringify(arr));
+    }
+  } catch {}
+}
+
+const firedApptReminders = getFiredApptReminders();
 
 export interface PendingMedItem {
   id: string;
@@ -197,7 +224,9 @@ export function startReminderScheduler(
   callbacks?: {
     onTakeMed?: (id: string, doseIndex: number) => void;
     onAddWater?: () => void;
-  }
+    onViewAppt?: (id: string) => void;
+  },
+  getUpcomingAppts?: () => Appointment[]
 ): void {
   stopReminderScheduler();
 
@@ -259,6 +288,72 @@ export function startReminderScheduler(
         });
       }
     });
+
+    // 3. Doctor Appointment Reminder Check (12 hours before & 1 hour before)
+    if (getUpcomingAppts) {
+      const upcoming = getUpcomingAppts();
+      const nowTimestamp = now.getTime();
+
+      upcoming.forEach((appt) => {
+        if (appt.completed) return;
+        const normTime = normalizeTimeString(appt.time);
+        if (!normTime || !normTime.includes(':')) return;
+
+        const apptDateObj = new Date(`${appt.date}T${normTime}`);
+        const targetTimestamp = apptDateObj.getTime();
+        if (isNaN(targetTimestamp)) return;
+
+        const diffMs = targetTimestamp - nowTimestamp;
+        const diffMinutes = Math.round(diffMs / (1000 * 60));
+
+        // 12-Hour Reminder (~720 minutes remaining): window between 690 and 720 minutes
+        const key12h = `${appt.id}_12h`;
+        if (diffMinutes >= 690 && diffMinutes <= 720 && !firedApptReminders.has(key12h)) {
+          firedApptReminders.add(key12h);
+          saveFiredApptReminder(key12h);
+
+          const title = t('appt_reminder_12h_title');
+          const body = t('appt_reminder_12h_body', {
+            doctor: appt.doctor || appt.title,
+            time: appt.time
+          });
+
+          sendLocalNotification(title, body);
+          showInAppToast({
+            icon: '📅',
+            title,
+            message: body,
+            actionText: t('view_appt_btn'),
+            onAction: () => callbacks?.onViewAppt?.(appt.id),
+            durationMs: 9000
+          });
+        }
+
+        // 1-Hour Reminder (~60 minutes remaining): window between 40 and 60 minutes
+        const key1h = `${appt.id}_1h`;
+        if (diffMinutes >= 40 && diffMinutes <= 60 && !firedApptReminders.has(key1h)) {
+          firedApptReminders.add(key1h);
+          saveFiredApptReminder(key1h);
+
+          const title = t('appt_reminder_1h_title');
+          const body = t('appt_reminder_1h_body', {
+            doctor: appt.doctor || appt.title,
+            time: appt.time,
+            location: appt.location ? `(${appt.location})` : ''
+          });
+
+          sendLocalNotification(title, body);
+          showInAppToast({
+            icon: '⏰',
+            title,
+            message: body,
+            actionText: t('view_appt_btn'),
+            onAction: () => callbacks?.onViewAppt?.(appt.id),
+            durationMs: 10000
+          });
+        }
+      });
+    }
   };
 
   // Run initial check immediately

@@ -16,12 +16,29 @@ export function getAppointments(): Appointment[] {
   );
 }
 
+export function isAppointmentDueOrPast(dateStr: string, timeStr: string): boolean {
+  try {
+    const target = new Date(`${dateStr}T${timeStr}`);
+    return target.getTime() <= Date.now();
+  } catch {
+    return false;
+  }
+}
+
 export function getUpcomingAppointments(): Appointment[] {
-  return getAppointments().filter((apt) => !isPast(apt.date));
+  return getAppointments().filter((apt) => !apt.completed && !isPast(apt.date));
 }
 
 export function getPastAppointments(): Appointment[] {
-  return getAppointments().filter((apt) => isPast(apt.date));
+  return getAppointments().filter((apt) => apt.completed || isPast(apt.date));
+}
+
+export function completeAppointment(id: string, completed: boolean = true): void {
+  const appointment = appData.appointments.find((a) => a.id === id);
+  if (appointment) {
+    appointment.completed = completed;
+    saveAppData(appData);
+  }
 }
 
 export function addAppointment(appointment: Omit<Appointment, 'id' | 'createdAt'>): Appointment {
