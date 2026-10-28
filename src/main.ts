@@ -982,19 +982,44 @@ function renderApp() {
           
           <div class="bmi-grid">
             <div class="bmi-stat-box">
-              <span class="bmi-stat-label">${t('current_bmi')}</span>
-              <span class="bmi-stat-num" style="color: ${bmiResult.color}">${formatNumber(bmiResult.bmi || '--')}</span>
-              <span class="bmi-stat-sub">${t('target_bmi_range')}</span>
+              <div class="bmi-stat-top">
+                <span class="bmi-stat-badge">⚖️</span>
+              </div>
+              <div class="bmi-stat-bottom">
+                <div class="bmi-val-group">
+                  <span class="bmi-stat-num" style="color: ${bmiResult.color}">${formatNumber(bmiResult.bmi || '--')}</span>
+                </div>
+                <span class="bmi-stat-label">${t('current_bmi')}</span>
+                <span class="bmi-stat-sub">${t('target_bmi_range')}</span>
+              </div>
             </div>
+
             <div class="bmi-stat-box">
-              <span class="bmi-stat-label">${t('recorded_weight')}</span>
-              <span class="bmi-stat-num">${formatNumber(userWeight)} <span style="font-size:0.9rem; font-weight:600;">kg</span></span>
-              <span class="bmi-stat-sub">${t('height_prefix', { height: formatNumber(userHeight) })}</span>
+              <div class="bmi-stat-top">
+                <span class="bmi-stat-badge">📏</span>
+              </div>
+              <div class="bmi-stat-bottom">
+                <div class="bmi-val-group">
+                  <span class="bmi-stat-num">${formatNumber(userWeight)}</span>
+                  <span class="bmi-stat-unit">kg</span>
+                </div>
+                <span class="bmi-stat-label">${t('recorded_weight')}</span>
+                <span class="bmi-stat-sub">${t('height_prefix', { height: formatNumber(userHeight) })}</span>
+              </div>
             </div>
+
             <div class="bmi-stat-box">
-              <span class="bmi-stat-label">${t('healthy_weight_range')}</span>
-              <span class="bmi-stat-num" style="font-size: 1.25rem;">${formatNumber(bmiResult.minHealthyWeight)}–${formatNumber(bmiResult.maxHealthyWeight)} <span style="font-size:0.85rem; font-weight:600;">kg</span></span>
-              <span class="bmi-stat-sub">${t('who_standard')}</span>
+              <div class="bmi-stat-top">
+                <span class="bmi-stat-badge">🎯</span>
+              </div>
+              <div class="bmi-stat-bottom">
+                <div class="bmi-val-group">
+                  <span class="bmi-stat-num">${formatNumber(bmiResult.minHealthyWeight)}–${formatNumber(bmiResult.maxHealthyWeight)}</span>
+                  <span class="bmi-stat-unit">kg</span>
+                </div>
+                <span class="bmi-stat-label">${t('healthy_weight_range')}</span>
+                <span class="bmi-stat-sub">${t('who_standard')}</span>
+              </div>
             </div>
           </div>
 
@@ -1038,23 +1063,58 @@ function renderApp() {
             t('health_score_title')
           )}
 
-          <!-- Period Summary Metrics Banner -->
+          <!-- Period Summary Metrics Banner (Hero Card Pattern) -->
           <div class="timeframe-summary-banner">
             <div class="timeframe-stat-item">
-              <span class="timeframe-stat-val">${formatNumber(timeframeSummary.adherence.percentage, appState.language)}%</span>
-              <span class="timeframe-stat-label">${t('stat_adherence')}</span>
+              <div class="timeframe-stat-top">
+                <span class="timeframe-stat-badge">💊</span>
+              </div>
+              <div class="timeframe-stat-bottom">
+                <div class="timeframe-val-group">
+                  <span class="timeframe-stat-val">${formatNumber(timeframeSummary.adherence.percentage, appState.language)}</span>
+                  <span class="timeframe-stat-unit">%</span>
+                </div>
+                <span class="timeframe-stat-label">${t('stat_adherence_short')}</span>
+              </div>
             </div>
+
             <div class="timeframe-stat-item">
-              <span class="timeframe-stat-val">${formatNumber(timeframeSummary.hydration.dailyAvgMl, appState.language)} ${t('ml_unit')}</span>
-              <span class="timeframe-stat-label">${t('stat_water')} (Avg)</span>
+              <div class="timeframe-stat-top">
+                <span class="timeframe-stat-badge">💧</span>
+              </div>
+              <div class="timeframe-stat-bottom">
+                <div class="timeframe-val-group">
+                  <span class="timeframe-stat-val">${formatNumber(timeframeSummary.hydration.dailyAvgMl, appState.language)}</span>
+                  <span class="timeframe-stat-unit">${t('ml_unit')}</span>
+                </div>
+                <span class="timeframe-stat-label">${t('stat_water_short')} (Avg)</span>
+              </div>
             </div>
+
             <div class="timeframe-stat-item">
-              <span class="timeframe-stat-val">${timeframeSummary.sleep.avgDuration !== null ? formatNumber(timeframeSummary.sleep.avgDuration, appState.language) + t('hours_unit') : '--'}</span>
-              <span class="timeframe-stat-label">${t('stat_sleep')}</span>
+              <div class="timeframe-stat-top">
+                <span class="timeframe-stat-badge">🌙</span>
+              </div>
+              <div class="timeframe-stat-bottom">
+                <div class="timeframe-val-group">
+                  <span class="timeframe-stat-val">${timeframeSummary.sleep.avgDuration !== null ? formatNumber(timeframeSummary.sleep.avgDuration, appState.language) : '--'}</span>
+                  ${timeframeSummary.sleep.avgDuration !== null ? `<span class="timeframe-stat-unit">${t('hours_unit')}</span>` : ''}
+                </div>
+                <span class="timeframe-stat-label">${t('stat_sleep')}</span>
+              </div>
             </div>
+
             <div class="timeframe-stat-item">
-              <span class="timeframe-stat-val">${timeframeSummary.vitals.avgSystolic && timeframeSummary.vitals.avgDiastolic ? `${formatNumber(timeframeSummary.vitals.avgSystolic, appState.language)}/${formatNumber(timeframeSummary.vitals.avgDiastolic, appState.language)}` : '--'}</span>
-              <span class="timeframe-stat-label">${appState.language === 'bn' ? 'গড় রক্তচাপ' : 'Avg BP'}</span>
+              <div class="timeframe-stat-top">
+                <span class="timeframe-stat-badge">❤️</span>
+              </div>
+              <div class="timeframe-stat-bottom">
+                <div class="timeframe-val-group">
+                  <span class="timeframe-stat-val">${timeframeSummary.vitals.avgSystolic && timeframeSummary.vitals.avgDiastolic ? `${formatNumber(timeframeSummary.vitals.avgSystolic, appState.language)}/${formatNumber(timeframeSummary.vitals.avgDiastolic, appState.language)}` : '--'}</span>
+                  ${timeframeSummary.vitals.avgSystolic ? `<span class="timeframe-stat-unit">mmHg</span>` : ''}
+                </div>
+                <span class="timeframe-stat-label">${appState.language === 'bn' ? 'গড় রক্তচাপ' : 'Avg BP'}</span>
+              </div>
             </div>
           </div>
 
