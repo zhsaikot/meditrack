@@ -4107,6 +4107,211 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   color: #2DD4BF;
 }
 
+/* ==========================================================================
+   Today's Scheduled Doctor Consultation Spotlight Card
+   ========================================================================== */
+.today-appointment-spotlight {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.09) 0%, rgba(13, 148, 136, 0.12) 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.08);
+  transition: all 0.25s ease;
+}
+
+.today-appointment-spotlight:hover {
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow: 0 6px 22px rgba(245, 158, 11, 0.14);
+}
+
+.appt-spotlight-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(245, 158, 11, 0.18);
+  color: #B45309;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  animation: pulseRing 1.8s infinite;
+}
+
+@keyframes pulseRing {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(245, 158, 11, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.appt-spotlight-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.appt-spotlight-icon {
+  font-size: 2rem;
+  background: rgba(13, 148, 136, 0.12);
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.appt-spotlight-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.appt-spotlight-title {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.appt-spotlight-doctor {
+  margin: 0 0 6px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.appt-spotlight-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0D9488;
+}
+
+.appt-spotlight-actions {
+  flex-shrink: 0;
+}
+
+.btn-spotlight-view {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #0D9488, #0284C7);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(13, 148, 136, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-spotlight-view:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(13, 148, 136, 0.35);
+  filter: brightness(1.05);
+}
+
+/* Upcoming Visit Mini-Alert */
+.upcoming-visit-mini-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  background: rgba(2, 132, 199, 0.06);
+  border: 1px solid rgba(2, 132, 199, 0.22);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.btn-mini-banner-view {
+  padding: 6px 14px;
+  background: var(--bg-primary);
+  border: 1px solid rgba(2, 132, 199, 0.4);
+  color: #0284C7;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-mini-banner-view:hover {
+  background: #0284C7;
+  color: #FFFFFF;
+}
+
+/* Dark mode overrides for Today appointment spotlight */
+.dark-mode .today-appointment-spotlight {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(13, 148, 136, 0.18) 100%);
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.dark-mode .appt-spotlight-badge {
+  background: rgba(245, 158, 11, 0.25);
+  color: #FCD34D;
+}
+
+.dark-mode .appt-spotlight-meta {
+  color: #2DD4BF;
+}
+
+.dark-mode .upcoming-visit-mini-banner {
+  background: rgba(2, 132, 199, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.dark-mode .btn-mini-banner-view {
+  background: #0F172A;
+  border-color: #38BDF8;
+  color: #38BDF8;
+}
+
+.dark-mode .btn-mini-banner-view:hover {
+  background: #0284C7;
+  color: #FFFFFF;
+}
+
+@media (max-width: 600px) {
+  .appt-spotlight-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .appt-spotlight-icon {
+    display: none;
+  }
+  .btn-spotlight-view {
+    width: 100%;
+    text-align: center;
+  }
+  .upcoming-visit-mini-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-mini-banner-view {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 /* Next Dose Spotlight Card */
 .next-dose-spotlight {
   background: linear-gradient(135deg, rgba(13, 148, 136, 0.12) 0%, rgba(20, 184, 166, 0.05) 100%);

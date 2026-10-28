@@ -291,6 +291,14 @@ function renderApp() {
   const upcomingAppts = getUpcomingAppointments();
   const pastAppts = getPastAppointments();
   const displayedAppts = activeApptTab === 'upcoming' ? upcomingAppts : pastAppts;
+  const todayDateStr = getTodayDateString();
+  const todayAppt = upcomingAppts.find(a => a.date === todayDateStr);
+  const upcomingSoonAppt = !todayAppt ? upcomingAppts.find(a => {
+    const tDate = new Date(a.date).getTime();
+    const nDate = new Date(todayDateStr).getTime();
+    const diffDays = Math.ceil((tDate - nDate) / (1000 * 60 * 60 * 24));
+    return diffDays > 0 && diffDays <= 3;
+  }) : null;
   
   // Calculate stats
   const medProgress = getTodaysProgress();
@@ -492,6 +500,43 @@ function renderApp() {
           </div>
         </div>
 
+        <!-- Today's Scheduled Doctor Consultation Spotlight (Urgent & Prominent) -->
+        ${todayAppt ? `
+          <div class="today-appointment-spotlight">
+            <div class="appt-spotlight-badge">
+              <span class="pulse-dot"></span>
+              <span>⭐ ${t('today_appt_badge')}</span>
+            </div>
+            <div class="appt-spotlight-content">
+              <div class="appt-spotlight-icon">🩺</div>
+              <div class="appt-spotlight-details">
+                <h3 class="appt-spotlight-title">${escapeHtml(todayAppt.title)}</h3>
+                <p class="appt-spotlight-doctor">${t('with_doctor', { doctor: escapeHtml(todayAppt.doctor) })}</p>
+                <div class="appt-spotlight-meta">
+                  <span>🕐 ${formatTime(todayAppt.time)}</span>
+                  ${todayAppt.location ? `<span>📍 ${escapeHtml(todayAppt.location)}</span>` : ''}
+                  ${todayAppt.attachments && todayAppt.attachments.length > 0 ? `<span>📎 ${formatNumber(todayAppt.attachments.length)} ${t('prescriptions_and_reports')}</span>` : ''}
+                </div>
+              </div>
+              <div class="appt-spotlight-actions">
+                <button class="btn-spotlight-view" id="view-today-appt-btn" data-id="${todayAppt.id}">
+                  ${t('view_details_btn')} →
+                </button>
+              </div>
+            </div>
+          </div>
+        ` : (upcomingSoonAppt ? `
+          <!-- Upcoming Consultation Mini-Alert (Next 3 days) -->
+          <div class="upcoming-visit-mini-banner">
+            <div class="mini-banner-info">
+              <span>🗓️ <strong>${t('upcoming_visit_label')}:</strong> ${escapeHtml(upcomingSoonAppt.title)} (${formatAppointmentDisplay(upcomingSoonAppt).dateDisplay} at ${formatTime(upcomingSoonAppt.time)}) · ${escapeHtml(upcomingSoonAppt.doctor)}</span>
+            </div>
+            <button class="btn-mini-banner-view" id="view-next-appt-btn" data-id="${upcomingSoonAppt.id}">
+              ${t('view_btn')} →
+            </button>
+          </div>
+        ` : '')}
+
         <!-- Next Dose Spotlight Banner (if any pending medicine) -->
         ${nextMedicine ? `
           <div class="next-dose-spotlight">
@@ -642,6 +687,30 @@ function renderApp() {
   } else if (appState.activeTab === 'health') {
     tabContentHTML = `
       <div class="tab-content tab-health">
+        <!-- Appointments List Section (Top Priority on Health Tab) -->
+        <section class="card appointments-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">${t('appts_eyebrow')}</p><h2>${t('appts_title')}</h2></div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-primary" id="appt-heading-add-btn" style="padding:6px 12px; font-size:0.8rem; border-radius:8px;">＋ ${t('add_visit_btn')}</button>
+            </div>
+          </div>
+
+          <!-- Appointments Switcher (Upcoming vs Past Records) -->
+          <div class="appt-tabs-row" role="tablist">
+            <button type="button" class="appt-tab-btn ${activeApptTab === 'upcoming' ? 'active' : ''}" data-appt-tab="upcoming">
+              ${t('upcoming_tab')} (${formatNumber(upcomingAppts.length)})
+            </button>
+            <button type="button" class="appt-tab-btn ${activeApptTab === 'past' ? 'active' : ''}" data-appt-tab="past">
+              ${t('past_tab')} (${formatNumber(pastAppts.length)})
+            </button>
+          </div>
+
+          <div id="appointments-list">
+            ${displayedAppts.length === 0 ? `<p class="empty-state">${activeApptTab === 'upcoming' ? t('no_appts') : t('no_past_appts')}</p>` : appointmentListHTML}
+          </div>
+        </section>
+
         <!-- Quick Log Actions Bar -->
         <section class="card quick-actions">
           <div class="section-heading">
@@ -664,39 +733,6 @@ function renderApp() {
           <div class="quick-metrics-row">
             <button class="quick-btn" id="show-vitals-btn" type="button">${t('log_vitals_btn')}</button>
             <button class="quick-btn" id="show-sleep-btn" type="button">${t('log_sleep_btn')}</button>
-          </div>
-        </section>
-
-        <!-- Body Mass Index (BMI) & Biometrics Card -->
-        <section class="card bmi-card">
-          <div class="section-heading">
-            <div><p class="eyebrow" style="color: ${bmiResult.color}">${t('bmi_eyebrow')}</p><h2>${t('bmi_title')}</h2></div>
-            <span class="bmi-badge" style="background: ${bmiResult.badgeBg}; color: ${bmiResult.color}">● ${localizedCategory}</span>
-          </div>
-          
-          <div class="bmi-grid">
-            <div class="bmi-stat-box">
-              <span class="bmi-stat-label">${t('current_bmi')}</span>
-              <span class="bmi-stat-num" style="color: ${bmiResult.color}">${formatNumber(bmiResult.bmi || '--')}</span>
-              <span class="bmi-stat-sub">${t('target_bmi_range')}</span>
-            </div>
-            <div class="bmi-stat-box">
-              <span class="bmi-stat-label">${t('recorded_weight')}</span>
-              <span class="bmi-stat-num">${formatNumber(userWeight)} <span style="font-size:0.9rem; font-weight:600;">kg</span></span>
-              <span class="bmi-stat-sub">${t('height_prefix', { height: formatNumber(userHeight) })}</span>
-            </div>
-            <div class="bmi-stat-box">
-              <span class="bmi-stat-label">${t('healthy_weight_range')}</span>
-              <span class="bmi-stat-num" style="font-size: 1.25rem;">${formatNumber(bmiResult.minHealthyWeight)}–${formatNumber(bmiResult.maxHealthyWeight)} <span style="font-size:0.85rem; font-weight:600;">kg</span></span>
-              <span class="bmi-stat-sub">${t('who_standard')}</span>
-            </div>
-          </div>
-
-          ${renderBMISpectrumSVG(bmiResult.bmi)}
-
-          <div class="bmi-advice-box">
-            <span>💡 ${escapeHtml(localizedAdvice)}</span>
-            <button class="bmi-edit-link" id="bmi-update-metrics-btn">${t('edit_profile_btn')}</button>
           </div>
         </section>
 
@@ -735,27 +771,36 @@ function renderApp() {
           `}
         </section>
 
-        <!-- Appointments List Section -->
-        <section class="card appointments-card">
+        <!-- Body Mass Index (BMI) & Biometrics Card -->
+        <section class="card bmi-card">
           <div class="section-heading">
-            <div><p class="eyebrow">${t('appts_eyebrow')}</p><h2>${t('appts_title')}</h2></div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <button class="btn-primary" id="appt-heading-add-btn" style="padding:6px 12px; font-size:0.8rem; border-radius:8px;">＋ ${t('add_visit_btn')}</button>
+            <div><p class="eyebrow" style="color: ${bmiResult.color}">${t('bmi_eyebrow')}</p><h2>${t('bmi_title')}</h2></div>
+            <span class="bmi-badge" style="background: ${bmiResult.badgeBg}; color: ${bmiResult.color}">● ${localizedCategory}</span>
+          </div>
+          
+          <div class="bmi-grid">
+            <div class="bmi-stat-box">
+              <span class="bmi-stat-label">${t('current_bmi')}</span>
+              <span class="bmi-stat-num" style="color: ${bmiResult.color}">${formatNumber(bmiResult.bmi || '--')}</span>
+              <span class="bmi-stat-sub">${t('target_bmi_range')}</span>
+            </div>
+            <div class="bmi-stat-box">
+              <span class="bmi-stat-label">${t('recorded_weight')}</span>
+              <span class="bmi-stat-num">${formatNumber(userWeight)} <span style="font-size:0.9rem; font-weight:600;">kg</span></span>
+              <span class="bmi-stat-sub">${t('height_prefix', { height: formatNumber(userHeight) })}</span>
+            </div>
+            <div class="bmi-stat-box">
+              <span class="bmi-stat-label">${t('healthy_weight_range')}</span>
+              <span class="bmi-stat-num" style="font-size: 1.25rem;">${formatNumber(bmiResult.minHealthyWeight)}–${formatNumber(bmiResult.maxHealthyWeight)} <span style="font-size:0.85rem; font-weight:600;">kg</span></span>
+              <span class="bmi-stat-sub">${t('who_standard')}</span>
             </div>
           </div>
 
-          <!-- Appointments Switcher (Upcoming vs Past Records) -->
-          <div class="appt-tabs-row" role="tablist">
-            <button type="button" class="appt-tab-btn ${activeApptTab === 'upcoming' ? 'active' : ''}" data-appt-tab="upcoming">
-              ${t('upcoming_tab')} (${formatNumber(upcomingAppts.length)})
-            </button>
-            <button type="button" class="appt-tab-btn ${activeApptTab === 'past' ? 'active' : ''}" data-appt-tab="past">
-              ${t('past_tab')} (${formatNumber(pastAppts.length)})
-            </button>
-          </div>
+          ${renderBMISpectrumSVG(bmiResult.bmi)}
 
-          <div id="appointments-list">
-            ${displayedAppts.length === 0 ? `<p class="empty-state">${activeApptTab === 'upcoming' ? t('no_appts') : t('no_past_appts')}</p>` : appointmentListHTML}
+          <div class="bmi-advice-box">
+            <span>💡 ${escapeHtml(localizedAdvice)}</span>
+            <button class="bmi-edit-link" id="bmi-update-metrics-btn">${t('edit_profile_btn')}</button>
           </div>
         </section>
       </div>
@@ -1690,31 +1735,45 @@ function attachEventListeners() {
     });
   });
 
+  // Appointment Modal Opener (by ID)
+  const openAppointmentDetailsModal = (id: string) => {
+    const appt = getAppointmentById(id);
+    if (!appt) return;
+
+    const titleEl = document.getElementById('appt-modal-title');
+    const submitBtn = document.getElementById('appt-submit-btn');
+    if (titleEl) titleEl.textContent = t('edit_appt_modal_title');
+    if (submitBtn) submitBtn.textContent = t('save_changes_btn');
+
+    (document.getElementById('appt-id') as HTMLInputElement).value = appt.id;
+    (document.getElementById('appt-title') as HTMLInputElement).value = appt.title;
+    (document.getElementById('appt-doctor') as HTMLInputElement).value = appt.doctor;
+    (document.getElementById('appt-date') as HTMLInputElement).value = appt.date;
+    (document.getElementById('appt-time') as HTMLInputElement).value = appt.time;
+    (document.getElementById('appt-location') as HTMLInputElement).value = appt.location || '';
+    (document.getElementById('appt-notes') as HTMLTextAreaElement).value = appt.notes || '';
+
+    stagedAppointmentAttachments = [...(appt.attachments || [])];
+    renderStagedApptAttachments();
+    apptModal?.showModal();
+  };
+
   // Appointment Edit Button
   document.querySelectorAll<HTMLButtonElement>('.edit-appt-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
-      if (!id) return;
-      const appt = getAppointmentById(id);
-      if (!appt) return;
-
-      const titleEl = document.getElementById('appt-modal-title');
-      const submitBtn = document.getElementById('appt-submit-btn');
-      if (titleEl) titleEl.textContent = t('edit_appt_modal_title');
-      if (submitBtn) submitBtn.textContent = t('save_changes_btn');
-
-      (document.getElementById('appt-id') as HTMLInputElement).value = appt.id;
-      (document.getElementById('appt-title') as HTMLInputElement).value = appt.title;
-      (document.getElementById('appt-doctor') as HTMLInputElement).value = appt.doctor;
-      (document.getElementById('appt-date') as HTMLInputElement).value = appt.date;
-      (document.getElementById('appt-time') as HTMLInputElement).value = appt.time;
-      (document.getElementById('appt-location') as HTMLInputElement).value = appt.location || '';
-      (document.getElementById('appt-notes') as HTMLTextAreaElement).value = appt.notes || '';
-
-      stagedAppointmentAttachments = [...(appt.attachments || [])];
-      renderStagedApptAttachments();
-      apptModal?.showModal();
+      if (id) openAppointmentDetailsModal(id);
     });
+  });
+
+  // Today / Upcoming Consultation Spotlight View Buttons from Today Page
+  document.getElementById('view-today-appt-btn')?.addEventListener('click', (e) => {
+    const id = (e.currentTarget as HTMLButtonElement).dataset.id;
+    if (id) openAppointmentDetailsModal(id);
+  });
+  document.getElementById('view-next-appt-btn')?.addEventListener('click', (e) => {
+    const id = (e.currentTarget as HTMLButtonElement).dataset.id;
+    if (id) openAppointmentDetailsModal(id);
   });
 
   // Appointment Delete Button

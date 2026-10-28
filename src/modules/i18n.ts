@@ -206,6 +206,11 @@ const translations: Record<Language, Record<string, string>> = {
     appt_updated_toast: 'Doctor visit updated successfully! ✨',
     upcoming_tab: 'Upcoming',
     past_tab: 'Past Visits',
+    today_appt_badge: "Today's Doctor Appointment",
+    today_appt_alert: 'You have a doctor consultation scheduled for today!',
+    view_details_btn: 'View Details & Prescriptions',
+    upcoming_visit_label: 'Upcoming Doctor Visit',
+    view_btn: 'View',
 
     // Vitals & Sleep Summaries
     vitals_eyebrow: 'VITAL SIGNS',
@@ -532,6 +537,11 @@ const translations: Record<Language, Record<string, string>> = {
     appt_updated_toast: 'অ্যাপয়েন্টমেন্ট সফলভাবে আপডেট করা হয়েছে! ✨',
     upcoming_tab: 'আসন্ন ভিজিট',
     past_tab: 'পূর্বের ভিজিট',
+    today_appt_badge: 'আজকের ডাক্তারের অ্যাপয়েন্টমেন্ট',
+    today_appt_alert: 'আজ আপনার ডাক্তারের সাথে সাক্ষাৎকার নির্ধারিত আছে!',
+    view_details_btn: 'বিস্তারিত ও প্রেসক্রিপশন দেখুন',
+    upcoming_visit_label: 'আসন্ন ডাক্তার সাক্ষাৎ',
+    view_btn: 'দেখুন',
 
     // Vitals & Sleep Summaries
     vitals_eyebrow: 'ভাইটাল সাইন',
