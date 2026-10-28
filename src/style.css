@@ -5,11 +5,23 @@
 :root {
   --color-primary: #0D9488;
   --color-primary-hover: #0F766E;
+  --color-primary-light: rgba(13, 148, 136, 0.08);
+  --color-primary-border: rgba(13, 148, 136, 0.28);
+  --color-primary-glow: rgba(13, 148, 136, 0.16);
   --bg-primary: #F8FAFC;
   --bg-card: #FFFFFF;
-  --text-main: #1E293B;
+  --text-main: #0F172A;
   --text-muted: #64748B;
   --border-color: #E2E8F0;
+  --color-warning: #D97706;
+  --color-warning-light: rgba(217, 119, 6, 0.1);
+  --color-warning-border: rgba(217, 119, 6, 0.35);
+  --color-success: #059669;
+  --color-success-light: rgba(5, 150, 105, 0.1);
+  --color-success-border: rgba(5, 150, 105, 0.3);
+  --color-danger: #E11D48;
+  --radius-card: 16px;
+  --radius-btn: 10px;
 }
 
 body {
@@ -466,6 +478,14 @@ html.dark-mode,
   --color-ink: #F1F5F9;
   --color-primary: #14B8A6;
   --color-primary-hover: #2DD4BF;
+  --color-primary-light: rgba(45, 212, 191, 0.12);
+  --color-primary-border: rgba(45, 212, 191, 0.3);
+  --color-primary-glow: rgba(45, 212, 191, 0.25);
+  --color-warning: #F59E0B;
+  --color-warning-light: rgba(245, 158, 11, 0.15);
+  --color-warning-border: rgba(245, 158, 11, 0.35);
+  --color-success: #10B981;
+  --color-success-light: rgba(16, 185, 129, 0.15);
   color-scheme: dark;
 }
 
@@ -969,16 +989,16 @@ label.icon-btn:hover {
   gap: 16px;
   padding: 18px 20px;
   margin-bottom: 14px;
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%);
-  border: 1.5px solid rgba(13, 148, 136, 0.28);
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.06);
+  background: var(--bg-card);
+  border: 1.5px solid var(--color-primary-border);
+  border-radius: var(--radius-card, 16px);
+  box-shadow: 0 4px 16px var(--color-primary-light);
   transition: all 0.25s ease;
 }
 
 .doctor-visit-highlight-card:hover {
-  border-color: rgba(13, 148, 136, 0.48);
-  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.12);
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 20px var(--color-primary-glow);
   transform: translateY(-1px);
 }
 
@@ -997,9 +1017,9 @@ label.icon-btn:hover {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: rgba(245, 158, 11, 0.15);
-  color: #B45309;
-  border: 1px solid rgba(245, 158, 11, 0.32);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-border);
   border-radius: 20px;
   width: fit-content;
 }
@@ -1024,23 +1044,25 @@ label.icon-btn:hover {
   justify-content: center;
   gap: 8px;
   padding: 12px 22px;
-  background: linear-gradient(135deg, #0D9488 0%, #0284C7 100%);
+  background: var(--color-primary);
   color: #FFFFFF;
-  border: none;
-  border-radius: 12px;
-  font-size: 0.94rem;
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-btn, 12px);
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
+  box-shadow: 0 4px 14px var(--color-primary-light);
   transition: all 0.2s ease;
   flex-shrink: 0;
+  font-family: inherit;
 }
 
 .btn-highlight-visit:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(13, 148, 136, 0.42);
-  filter: brightness(1.06);
+  box-shadow: 0 6px 18px var(--color-primary-glow);
 }
 
 .btn-highlight-visit:active {
@@ -4380,18 +4402,18 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
    Today's Scheduled Doctor Consultation Spotlight Card
    ========================================================================== */
 .today-appointment-spotlight {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.09) 0%, rgba(13, 148, 136, 0.12) 100%);
-  border: 1.5px solid rgba(245, 158, 11, 0.4);
-  border-radius: 16px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--color-primary-border);
+  border-radius: var(--radius-card, 16px);
   padding: 16px 18px;
   margin-bottom: 14px;
-  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.08);
+  box-shadow: 0 4px 16px var(--color-primary-light);
   transition: all 0.25s ease;
 }
 
 .today-appointment-spotlight:hover {
-  border-color: rgba(245, 158, 11, 0.6);
-  box-shadow: 0 6px 22px rgba(245, 158, 11, 0.14);
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 20px var(--color-primary-glow);
 }
 
 .appt-spotlight-badge {
@@ -4403,8 +4425,9 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: rgba(245, 158, 11, 0.18);
-  color: #B45309;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-border);
   border-radius: 20px;
   margin-bottom: 10px;
 }
@@ -4413,15 +4436,15 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #F59E0B;
-  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  background: var(--color-primary);
+  box-shadow: 0 0 0 0 var(--color-primary-glow);
   animation: pulseRing 1.8s infinite;
 }
 
 @keyframes pulseRing {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(245, 158, 11, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 var(--color-primary-glow); }
+  70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(13, 148, 136, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 var(--color-primary-glow); }
 }
 
 .appt-spotlight-content {
@@ -4431,8 +4454,10 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 }
 
 .appt-spotlight-icon {
-  font-size: 2rem;
-  background: rgba(13, 148, 136, 0.12);
+  font-size: 1.5rem;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-border);
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -4467,7 +4492,7 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   gap: 10px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #0D9488;
+  color: var(--color-primary);
 }
 
 .appt-spotlight-actions {
@@ -4480,50 +4505,54 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 
 .btn-spotlight-view {
   padding: 10px 18px;
-  background: linear-gradient(135deg, #0D9488, #0284C7);
-  color: #FFFFFF;
-  border: none;
-  border-radius: 10px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary-border);
+  border-radius: var(--radius-btn, 10px);
   font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 3px 10px rgba(13, 148, 136, 0.25);
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  font-family: inherit;
 }
 
 .btn-spotlight-view:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 14px rgba(13, 148, 136, 0.35);
-  filter: brightness(1.05);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--color-primary-glow);
 }
 
 .btn-spotlight-done {
   padding: 10px 18px;
-  background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  background: var(--color-primary);
   color: #FFFFFF;
-  border: none;
-  border-radius: 10px;
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-btn, 10px);
   font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 3px 10px rgba(5, 150, 105, 0.28);
+  box-shadow: 0 2px 8px var(--color-primary-light);
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  font-family: inherit;
 }
 
 .btn-spotlight-done:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 14px rgba(5, 150, 105, 0.4);
-  filter: brightness(1.05);
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--color-primary-glow);
 }
 
 .today-appointment-spotlight.spotlight-due {
@@ -4751,63 +4780,100 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   gap: 12px;
   padding: 10px 16px;
   margin-bottom: 14px;
-  background: rgba(2, 132, 199, 0.06);
-  border: 1px solid rgba(2, 132, 199, 0.22);
+  background: var(--bg-card);
+  border: 1px solid var(--color-primary-border);
   border-radius: 12px;
   font-size: 0.85rem;
   color: var(--text-main);
+  box-shadow: 0 2px 8px var(--color-primary-light);
 }
 
 .btn-mini-banner-view {
   padding: 6px 14px;
-  background: var(--bg-primary);
-  border: 1px solid rgba(2, 132, 199, 0.4);
-  color: #0284C7;
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-border);
+  color: var(--color-primary);
   border-radius: 8px;
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
+  font-family: inherit;
 }
 
 .btn-mini-banner-view:hover {
-  background: #0284C7;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #FFFFFF;
 }
 
 /* Dark mode overrides for Today appointment spotlight */
 .dark-mode .today-appointment-spotlight {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(13, 148, 136, 0.18) 100%);
-  border-color: rgba(245, 158, 11, 0.45);
+  background: var(--bg-card);
+  border-color: var(--color-primary-border);
 }
 
 .dark-mode .appt-spotlight-badge {
-  background: rgba(245, 158, 11, 0.25);
-  color: #FCD34D;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+}
+
+.dark-mode .appt-spotlight-icon {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
 }
 
 .dark-mode .appt-spotlight-meta {
-  color: #2DD4BF;
+  color: var(--color-primary);
 }
 
 .dark-mode .today-appointment-spotlight.spotlight-due {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(225, 29, 72, 0.12) 100%);
-  border-color: rgba(245, 158, 11, 0.55);
+  border-color: var(--color-warning-border);
+}
+
+.dark-mode .btn-spotlight-view {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+}
+
+.dark-mode .btn-spotlight-view:hover {
+  background: var(--color-primary);
+  color: #0F172A;
+}
+
+.dark-mode .btn-spotlight-done {
+  background: var(--color-primary);
+  color: #0F172A;
+  border-color: var(--color-primary);
+}
+
+.dark-mode .btn-spotlight-done:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 .dark-mode .today-appointment-completed-banner {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(13, 148, 136, 0.12) 100%);
-  border-color: rgba(16, 185, 129, 0.4);
+  background: var(--bg-card);
+  border-color: var(--color-primary-border);
 }
 
 .dark-mode .completed-banner-info strong {
-  color: #34D399;
+  color: var(--color-primary);
 }
 
 .dark-mode .btn-completed-view {
-  color: #34D399;
-  border-color: rgba(52, 211, 153, 0.5);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+}
+
+.dark-mode .btn-completed-view:hover {
+  background: var(--color-primary);
+  color: #0F172A;
 }
 
 .dark-mode .question-pill {
@@ -4847,7 +4913,11 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 }
 
 .dark-mode .appt-meta-row {
-  color: #38BDF8;
+  color: var(--text-muted);
+}
+
+.dark-mode .appt-meta-row span {
+  color: var(--color-primary);
 }
 
 .dark-mode .appt-card-footer {
@@ -4865,19 +4935,19 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 }
 
 .dark-mode .upcoming-visit-mini-banner {
-  background: rgba(2, 132, 199, 0.12);
-  border-color: rgba(56, 189, 248, 0.3);
+  background: var(--bg-card);
+  border-color: var(--color-primary-border);
 }
 
 .dark-mode .btn-mini-banner-view {
-  background: #0F172A;
-  border-color: #38BDF8;
-  color: #38BDF8;
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
 }
 
 .dark-mode .btn-mini-banner-view:hover {
-  background: #0284C7;
-  color: #FFFFFF;
+  background: var(--color-primary);
+  color: #0F172A;
 }
 
 @media (max-width: 600px) {
@@ -4916,15 +4986,21 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 
 /* Next Dose Spotlight Card */
 .next-dose-spotlight {
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.12) 0%, rgba(20, 184, 166, 0.05) 100%);
-  border: 1.5px solid rgba(13, 148, 136, 0.35);
-  border-radius: 16px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--color-primary-border);
+  border-radius: var(--radius-card, 16px);
   padding: 16px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.08);
+  box-shadow: 0 4px 16px var(--color-primary-light);
+  transition: all 0.25s ease;
+}
+
+.next-dose-spotlight:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 20px var(--color-primary-glow);
 }
 
 .spotlight-info {
@@ -4937,14 +5013,14 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: var(--color-primary);
-  color: white;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   flex-shrink: 0;
-  box-shadow: 0 4px 10px rgba(13, 148, 136, 0.3);
 }
 
 .spotlight-details {
@@ -4976,28 +5052,32 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 .spotlight-take-btn {
   background: var(--color-primary);
   color: #FFFFFF;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 0.88rem;
+  border: 1.5px solid var(--color-primary);
+  padding: 10px 18px;
+  border-radius: var(--radius-btn, 10px);
+  font-size: 0.86rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+  box-shadow: 0 2px 8px var(--color-primary-light);
+  font-family: inherit;
 }
 
 .spotlight-take-btn:hover {
   background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--color-primary-glow);
 }
 
 .dark-mode .next-dose-spotlight {
-  background: rgba(19, 78, 74, 0.25);
-  border-color: rgba(45, 212, 191, 0.3);
+  background: var(--bg-card);
+  border-color: var(--color-primary-border);
 }
 
 .dark-mode .spotlight-tag {
