@@ -427,47 +427,41 @@ function renderApp() {
     const hasAttachments = appt.attachments && appt.attachments.length > 0;
     const isDue = !appt.completed && isAppointmentDueOrPast(appt.date, appt.time);
 
+    const badgeHTML = activeApptTab === 'upcoming' 
+      ? (isDue 
+          ? `<span class="countdown-badge due-badge">⏰ ${t('due_time_badge')}</span>` 
+          : `<span class="countdown-badge">${display.countdown}</span>`
+        )
+      : `<span class="past-badge completed-badge">✓ ${t('appt_status_completed')}</span>`;
+
     return `
       <div class="appointment-item ${appt.completed ? 'completed' : ''} ${isDue ? 'item-due' : ''}">
-        <div class="appt-main-row">
-          <div class="appt-info">
-            <div class="appt-title-row">
-              <strong>${escapeHtml(appt.title)}</strong>
-              <span class="appt-doctor">${t('with_doctor', { doctor: escapeHtml(appt.doctor) })}</span>
-            </div>
-            <div class="appt-meta">📅 ${display.dateDisplay} at ${display.timeDisplay} ${appt.location ? `· 📍 ${escapeHtml(appt.location)}` : ''}</div>
-            ${appt.notes ? `<div class="appt-notes-preview">💬 ${escapeHtml(appt.notes)}</div>` : ''}
+        <!-- Top Row: Title + Countdown Badge on left, Edit + Delete on right -->
+        <div class="appt-card-header">
+          <div class="appt-title-left">
+            <h4 class="appt-title-text">${escapeHtml(appt.title)}</h4>
+            ${badgeHTML}
           </div>
-          <div class="appt-actions">
-            ${activeApptTab === 'upcoming' 
-              ? (isDue 
-                  ? `<span class="countdown-badge due-badge">⏰ ${t('due_time_badge')}</span>` 
-                  : `<span class="countdown-badge">${display.countdown}</span>`
-                )
-              : `<span class="past-badge completed-badge">✓ ${t('appt_status_completed')}</span>`
-            }
-            ${!appt.completed ? `
-              <button class="action-btn-pill btn-mark-appt-done" data-id="${appt.id}" title="${t('btn_mark_appt_done')}">✓ ${t('appt_status_completed')}</button>
-            ` : `
-              <button class="action-btn-pill btn-undo-appt-done" data-id="${appt.id}" title="${t('btn_mark_appt_undone')}">${t('btn_mark_appt_undone')}</button>
-            `}
+          <div class="appt-header-tools">
             <button class="edit-appt-btn" data-id="${appt.id}" title="${t('edit_appt_btn')}" aria-label="${t('edit_appt_btn')}">✏️</button>
             <button class="delete-appt-btn" data-id="${appt.id}" title="${t('delete_appt_title')}" aria-label="${t('delete_appt_title')}">🗑️</button>
           </div>
         </div>
 
-        ${isDue ? `
-          <div class="appt-completion-banner">
-            <div class="completion-banner-text">
-              <span class="banner-pulse-dot"></span>
-              <span><strong>${t('prompt_doctor_visit_completed')}</strong></span>
-            </div>
-            <button type="button" class="btn-banner-done btn-mark-appt-done" data-id="${appt.id}">
-              ${t('btn_mark_appt_done')}
-            </button>
+        <!-- Full-Width Details Body -->
+        <div class="appt-card-body">
+          <div class="appt-doctor-row">
+            <span>👨‍⚕️</span>
+            <strong>${t('with_doctor', { doctor: escapeHtml(appt.doctor) })}</strong>
           </div>
-        ` : ''}
+          <div class="appt-meta-row">
+            <span>📅 ${display.dateDisplay} at ${display.timeDisplay}</span>
+            ${appt.location ? `<span class="appt-loc-chip">· 📍 ${escapeHtml(appt.location)}</span>` : ''}
+          </div>
+          ${appt.notes ? `<div class="appt-notes-preview">💬 ${escapeHtml(appt.notes)}</div>` : ''}
+        </div>
 
+        <!-- Attachments Strip if any -->
         ${hasAttachments ? `
           <div class="appt-attachments-strip">
             <span class="attachments-label">📎 ${appt.attachments!.length} ${t('prescriptions_and_reports')}:</span>
@@ -481,6 +475,40 @@ function renderApp() {
             </div>
           </div>
         ` : ''}
+
+        <!-- Due Prompt Banner if time arrived/passed -->
+        ${isDue ? `
+          <div class="appt-completion-banner">
+            <div class="completion-banner-text">
+              <span class="banner-pulse-dot"></span>
+              <span><strong>${t('prompt_doctor_visit_completed')}</strong></span>
+            </div>
+            <button type="button" class="btn-banner-done btn-mark-appt-done" data-id="${appt.id}">
+              ${t('btn_mark_appt_done')}
+            </button>
+          </div>
+        ` : ''}
+
+        <!-- Bottom Action Bar -->
+        <div class="appt-card-footer">
+          <div class="appt-footer-status">
+            ${appt.completed 
+              ? `<span class="footer-done-badge">✓ ${t('appt_status_completed')}</span>` 
+              : `<span class="footer-scheduled-hint">${isDue ? '⏰ ' + t('due_time_badge') : '🗓️ ' + display.countdown}</span>`
+            }
+          </div>
+          <div class="appt-footer-actions">
+            ${!appt.completed ? `
+              <button type="button" class="btn-mark-appt-done-footer btn-mark-appt-done" data-id="${appt.id}">
+                ${t('btn_mark_appt_done')}
+              </button>
+            ` : `
+              <button type="button" class="btn-undo-appt-done-footer btn-undo-appt-done" data-id="${appt.id}">
+                ${t('btn_mark_appt_undone')}
+              </button>
+            `}
+          </div>
+        </div>
       </div>
     `;
   }).join('');

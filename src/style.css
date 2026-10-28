@@ -1176,12 +1176,13 @@ select {
 .appointment-item {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   padding: 16px 18px;
   border: 1px solid var(--border-color);
   border-radius: 14px;
   margin-bottom: 12px;
   background: var(--bg-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   transition: all 0.2s ease;
 }
 
@@ -1191,7 +1192,172 @@ select {
 }
 
 .appointment-item.completed {
-  opacity: 0.85;
+  opacity: 0.9;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.02) 0%, var(--bg-primary) 100%);
+}
+
+.appointment-item.item-due {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.04) 0%, var(--bg-primary) 100%);
+}
+
+/* Card Header: Title & Countdown on left, Edit & Delete on right */
+.appt-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.appt-title-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.appt-title-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.appt-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Card Body: 100% full width */
+.appt-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.appt-doctor-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.appt-doctor {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.appt-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: #0284C7;
+  font-weight: 500;
+}
+
+.appt-loc-chip {
+  color: var(--text-muted);
+}
+
+.appt-notes-preview {
+  font-size: 0.82rem;
+  color: var(--text-main);
+  background: rgba(13, 148, 136, 0.05);
+  border-left: 3px solid #0D9488;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* Card Footer: Action Bar */
+.appt-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+  flex-wrap: wrap;
+}
+
+.appt-footer-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-done-badge {
+  color: #059669;
+  font-weight: 700;
+}
+
+.footer-scheduled-hint {
+  color: var(--text-muted);
+}
+
+.appt-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn-mark-appt-done-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-mark-appt-done-footer:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(5, 150, 105, 0.35);
+  filter: brightness(1.05);
+}
+
+.btn-undo-appt-done-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-undo-appt-done-footer:hover {
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--text-main);
 }
 
 .appt-main-row {
@@ -1213,26 +1379,10 @@ select {
   margin-bottom: 4px;
 }
 
-.appt-doctor {
-  color: var(--text-muted);
-  font-size: 0.88rem;
-}
-
 .appt-meta {
   font-size: 0.82rem;
   color: #3b82f6;
   margin-bottom: 4px;
-}
-
-.appt-notes-preview {
-  font-size: 0.82rem;
-  color: var(--text-main);
-  background: rgba(13, 148, 136, 0.05);
-  border-left: 3px solid #0D9488;
-  padding: 6px 10px;
-  border-radius: 4px;
-  margin-top: 6px;
-  line-height: 1.4;
 }
 
 .appt-actions {
@@ -4685,6 +4835,28 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 
 .dark-mode .appt-checkbox-label {
   color: #34D399;
+}
+
+.dark-mode .appt-card-header {
+  border-color: #334155;
+}
+
+.dark-mode .appt-meta-row {
+  color: #38BDF8;
+}
+
+.dark-mode .appt-card-footer {
+  border-color: #334155;
+}
+
+.dark-mode .btn-undo-appt-done-footer {
+  border-color: #475569;
+  color: #94A3B8;
+}
+
+.dark-mode .btn-undo-appt-done-footer:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #F1F5F9;
 }
 
 .dark-mode .upcoming-visit-mini-banner {
