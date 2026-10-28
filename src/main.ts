@@ -586,19 +586,48 @@ function renderApp() {
   if (appState.activeTab === 'today') {
     tabContentHTML = `
       <div class="tab-content tab-today">
-        <!-- Hero Routine Stats -->
+        <!-- Hero Routine Stats (Mockup Inspired: Image 1) -->
         <div class="hero-routine-strip">
+          <!-- Card 1: Medicine Adherence -->
           <div class="hero-stat-card">
-            <span class="hero-stat-val">${formatNumber(adherenceRate)}%</span>
-            <span class="hero-stat-lbl">${t('stat_adherence')}</span>
+            <div class="hero-stat-top">
+              <div class="hero-stat-badge badge-med">💊</div>
+            </div>
+            <div class="hero-stat-bottom">
+              <div class="hero-stat-val-group">
+                <span class="hero-stat-num">${formatNumber(adherenceRate)}</span>
+                <span class="hero-stat-unit">%</span>
+              </div>
+              <span class="hero-stat-lbl">${t('stat_adherence_short')}</span>
+            </div>
           </div>
+
+          <!-- Card 2: Water Intake -->
           <div class="hero-stat-card">
-            <span class="hero-stat-val">${formatNumber(waterAmount)}${t('ml_unit')}</span>
-            <span class="hero-stat-lbl">${t('stat_water')}</span>
+            <div class="hero-stat-top">
+              <div class="hero-stat-badge badge-water">💧</div>
+            </div>
+            <div class="hero-stat-bottom">
+              <div class="hero-stat-val-group">
+                <span class="hero-stat-num">${formatNumber(waterAmount)}</span>
+                <span class="hero-stat-unit">${t('ml_unit')}</span>
+              </div>
+              <span class="hero-stat-lbl">${t('stat_water_short')}</span>
+            </div>
           </div>
+
+          <!-- Card 3: Check-in Streak -->
           <div class="hero-stat-card">
-            <span class="hero-stat-val">${formatNumber(streakDays)} ${t('days_unit')}</span>
-            <span class="hero-stat-lbl">${t('stat_streak')}</span>
+            <div class="hero-stat-top">
+              <div class="hero-stat-badge badge-streak">🔥</div>
+            </div>
+            <div class="hero-stat-bottom">
+              <div class="hero-stat-val-group">
+                <span class="hero-stat-num">${formatNumber(streakDays)}</span>
+                <span class="hero-stat-unit">${t('days_unit')}</span>
+              </div>
+              <span class="hero-stat-lbl">${t('stat_streak_short')}</span>
+            </div>
           </div>
         </div>
 
