@@ -68,7 +68,8 @@ import {
   getMilestones, 
   renderHydrationChartSVG, 
   renderMoodSleepChartSVG, 
-  calculateCorrelationInsight 
+  calculateCorrelationInsight,
+  renderRadialAdherenceGaugeSVG
 } from './modules/trends'
 import { printDoctorReport, downloadPDFReport } from './modules/report'
 import { t, setLanguage, formatNumber, Language } from './modules/i18n'
@@ -675,26 +676,76 @@ function renderApp() {
           </div>
         ` : ''}
 
-        <!-- Harmonized Hydration Tracker -->
-        <section class="card water-card">
-          <div class="section-heading">
-            <div><p class="eyebrow">${t('hydration_eyebrow')}</p><h2>${t('hydration_title')}</h2></div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <button class="goal-setting-btn" id="edit-water-goal-btn" title="Customize daily water goal">⚙️ ${formatNumber(hydrationGoal)}${t('ml_unit')} Goal</button>
-              <span class="water-icon">💧</span>
+        <!-- Bento Overview Section (দৈনিক সারসংক্ষেপ - Mockup Inspired) -->
+        <section class="bento-overview-section">
+          <div class="bento-header-row">
+            <div>
+              <p class="eyebrow">${t('overview_eyebrow')}</p>
+              <h2 class="bento-title">${t('overview_title')}</h2>
             </div>
+            <span class="bento-live-badge">● ${t('live_badge')}</span>
           </div>
-          <p class="card-intro">${waterAmount >= hydrationGoal ? t('water_intro_at_goal') : t('water_intro_remaining', { remaining: formatNumber(hydrationGoal - waterAmount) })}</p>
-          <div class="water-progress">
-            <div class="progress-bar" style="width: ${waterProgress}%"></div>
-          </div>
-          <div class="water-stats">
-            <span>${formatNumber(waterAmount)}${t('ml_unit')} / ${formatNumber(hydrationGoal)}${t('ml_unit')}</span>
-            <span>${formatNumber(Math.round(waterProgress))}%</span>
-          </div>
-          <div class="water-actions">
-            <button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">${t('remove_250ml')}</button>
-            <button class="btn-water" id="add-water-btn">${t('add_250ml')} <span>+</span></button>
+
+          <div class="bento-grid">
+            <!-- Bento Card 1: Hydration Tracker -->
+            <div class="bento-card bento-card-water">
+              <div class="bento-card-header">
+                <div class="bento-icon-badge water-badge">💧</div>
+                <button class="bento-pill-action" id="edit-water-goal-btn" title="Customize goal">
+                  ⚙️ ${formatNumber(hydrationGoal)}${t('ml_unit')}
+                </button>
+              </div>
+              <div class="bento-card-body">
+                <span class="bento-stat-num">${formatNumber(waterAmount)}<span class="bento-stat-unit">${t('ml_unit')}</span></span>
+                <span class="bento-stat-label">${t('bento_water_title')} (${formatNumber(Math.round(waterProgress))}%)</span>
+                <div class="bento-water-progress-track">
+                  <div class="bento-water-progress-bar" style="width: ${waterProgress}%;"></div>
+                </div>
+              </div>
+              <div class="bento-card-footer">
+                <button class="bento-btn-secondary" id="remove-water-btn" aria-label="Remove 250ml">${t('remove_250ml')}</button>
+                <button class="bento-btn-primary" id="add-water-btn">
+                  <span>${t('add_250ml')}</span> <span class="btn-plus">＋</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Right Column: Stacked Bento Cards (Sleep & Vitals) -->
+            <div class="bento-stacked-col">
+              <!-- Bento Card 2: Sleep Tracker -->
+              <div class="bento-card bento-card-sleep" id="bento-sleep-card">
+                <div class="bento-card-header">
+                  <div class="bento-icon-badge sleep-badge">🌙</div>
+                  <button class="bento-quick-log-btn" id="bento-log-sleep-btn" type="button" title="${t('log_sleep_btn')}">＋</button>
+                </div>
+                <div class="bento-card-body">
+                  <span class="bento-stat-num">
+                    ${latestSleep ? `${formatNumber(latestSleep.duration)}<span class="bento-stat-unit">${t('hours_unit')}</span>` : '--'}
+                  </span>
+                  <span class="bento-stat-label">${t('bento_sleep_title')}</span>
+                  <div class="bento-sub-metric">
+                    ${latestSleep ? `${'⭐'.repeat(latestSleep.quality)} · ${formatTime(latestSleep.bedtime)}` : `<span class="bento-tap-hint">Tap ＋ to log</span>`}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bento Card 3: Vitals Monitor -->
+              <div class="bento-card bento-card-vitals" id="bento-vitals-card">
+                <div class="bento-card-header">
+                  <div class="bento-icon-badge vitals-badge">❤️</div>
+                  <button class="bento-quick-log-btn" id="bento-log-vitals-btn" type="button" title="${t('log_vitals_btn')}">＋</button>
+                </div>
+                <div class="bento-card-body">
+                  <span class="bento-stat-num">
+                    ${latestVitals?.heartRate ? `${formatNumber(latestVitals.heartRate)}<span class="bento-stat-unit">bpm</span>` : (latestVitals?.bloodPressure ? `${formatNumber(latestVitals.bloodPressure.systolic)}/${formatNumber(latestVitals.bloodPressure.diastolic)}` : '--')}
+                  </span>
+                  <span class="bento-stat-label">${t('bento_vitals_title')}</span>
+                  <div class="bento-sub-metric">
+                    ${latestVitals?.bloodPressure ? `BP ${formatNumber(latestVitals.bloodPressure.systolic)}/${formatNumber(latestVitals.bloodPressure.diastolic)} mmHg` : (latestVitals?.heartRate ? `Pulse Normal` : `<span class="bento-tap-hint">Tap ＋ to log</span>`)}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -949,6 +1000,14 @@ function renderApp() {
             </div>
           </div>
 
+          <!-- Semi-Circle Health Adherence Score Gauge (Mockup Screen 3) -->
+          ${renderRadialAdherenceGaugeSVG(
+            timeframeSummary.adherence.percentage,
+            formatNumber(timeframeSummary.adherence.percentage, appState.language) + '%',
+            timeframeSummary.adherence.percentage >= 75 ? t('score_excellent') : (timeframeSummary.adherence.percentage >= 50 ? t('score_good') : t('score_attention')),
+            t('health_score_title')
+          )}
+
           <!-- Period Summary Metrics Banner -->
           <div class="timeframe-summary-banner">
             <div class="timeframe-stat-item">
@@ -1141,39 +1200,61 @@ function renderApp() {
     `;
   }
 
+  const currentHour = new Date().getHours();
+  let greetingEyebrowText = '';
+  if (currentHour < 12) {
+    greetingEyebrowText = appState.language === 'bn' ? 'শুভ সকাল 🌅' : 'Good Morning 👋';
+  } else if (currentHour < 17) {
+    greetingEyebrowText = appState.language === 'bn' ? 'শুভ দুপুর ☀️' : 'Good Afternoon 👋';
+  } else {
+    greetingEyebrowText = appState.language === 'bn' ? 'শুভ সন্ধ্যা 🌙' : 'Good Evening 👋';
+  }
+
   app.innerHTML = `
     <div class="container">
-      <header class="main-header">
-        <div class="brand-lockup">
+      <!-- Modern Top Header: Brand Lockup + Quick Action Pills -->
+      <header class="modern-app-header">
+        <div class="header-brand-group">
           <div class="brand-mark">✚</div>
-          <div>
-            <p class="eyebrow">${t('brand_eyebrow')}</p>
-            <h1>${t('brand_name')}</h1>
-            <p class="subtitle">${t('brand_subtitle')}</p>
+          <div class="brand-text">
+            <h1 style="margin:0; font-size:1.42rem; letter-spacing:-0.03em; color:var(--text-main); font-weight:800; line-height:1.1;">${t('brand_name')}</h1>
+            <p class="subtitle" style="margin:0; font-size:0.75rem; color:var(--text-muted); line-height:1.2;">${t('brand_subtitle')}</p>
           </div>
+        </div>
+
+        <div class="header-quick-actions">
+          <button type="button" class="header-icon-pill" id="quick-toggle-lang-btn" title="${t('switch_language')}">
+            <span style="font-size:0.8rem; font-weight:800;">${appState.language === 'bn' ? 'EN' : 'বাং'}</span>
+          </button>
+          <button type="button" class="header-icon-pill ${appState.notificationsEnabled ? 'active' : ''}" id="quick-toggle-notif-btn" title="${appState.notificationsEnabled ? t('reminders_active') : t('enable_reminders')}">
+            <span>${appState.notificationsEnabled ? '🔔' : '🔕'}</span>
+            ${appState.notificationsEnabled ? `<span class="icon-dot-indicator"></span>` : ''}
+          </button>
+          <button type="button" class="header-icon-pill" id="quick-toggle-theme-btn" title="${t('toggle_theme_title')}">
+            <span>${appState.isDarkMode ? '🌙' : '☀️'}</span>
+          </button>
         </div>
       </header>
 
-      <!-- User Greeting & Date Bar (Side by Side / পাশাপাশি) -->
-      <div class="user-date-bar">
-        <div class="header-user-badge" id="header-avatar-btn" role="button" tabindex="0" title="${t('tab_profile')}">
-          <div class="header-user-avatar">
+      <!-- User Greeting & Date Card (Mockup Inspired: Wyatt Anderson style) -->
+      <div class="user-greeting-card">
+        <div class="greeting-user-col">
+          <div class="greeting-avatar-circle" id="header-avatar-btn" role="button" tabindex="0" title="${t('tab_profile')}">
             ${profile.avatarUrl ? `
-              <img src="${profile.avatarUrl}" class="header-avatar-img" alt="Profile" />
+              <img src="${profile.avatarUrl}" class="greeting-avatar-img" alt="Profile" />
             ` : `
-              <div class="header-avatar-fallback">${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</div>
+              <span>${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</span>
             `}
           </div>
-          <div class="header-user-details">
-            <span class="header-user-greeting">${appState.language === 'bn' ? 'স্বাগতম' : 'Hello'},</span>
-            <strong class="header-user-name">${escapeHtml(profile.name?.trim() || (appState.language === 'bn' ? 'ব্যবহারকারী' : 'Patient'))}</strong>
+          <div class="greeting-texts">
+            <span class="greeting-eyebrow-text">${greetingEyebrowText}</span>
+            <strong class="greeting-full-name">${escapeHtml(profile.name?.trim() || (appState.language === 'bn' ? 'ব্যবহারকারী' : 'Patient'))}</strong>
           </div>
         </div>
 
-        <div class="date-strip">
+        <div class="greeting-date-pill">
           <span class="status-dot"></span>
           <span>${todayLabel}</span>
-          ${healthInsight ? `<span class="date-strip-note">${healthInsight}</span>` : ''}
         </div>
       </div>
 
@@ -1181,37 +1262,43 @@ function renderApp() {
       ${tabContentHTML}
 
       <!-- App Footer -->
-      <footer class="app-footer" style="margin-top: 24px;">
+      <footer class="app-footer" style="margin-top: 24px; margin-bottom: 20px;">
         <p class="copyright-text">${appState.language === 'bn' ? 'তৈরি করেছেন' : 'Created by'} <a href="https://www.instagram.com/zhsaikot" target="_blank" rel="noopener noreferrer" class="creator-link">MD. Ziaul Hasan</a></p>
       </footer>
 
-      <!-- Sticky Bottom Quick Navigation Bar (4-Tab Switcher) -->
-      <nav class="bottom-nav-bar" aria-label="Quick Navigation">
-        <button class="bottom-nav-item ${appState.activeTab === 'today' ? 'active' : ''}" data-tab="today" title="${t('tab_today')}">
-          <span class="bottom-nav-icon">🏠</span>
-          <span class="bottom-nav-label">${t('tab_today')}</span>
+      <!-- Floating Navigation Dock & Quick Add FAB (Mockup Inspired) -->
+      <div class="floating-dock-wrapper">
+        <nav class="floating-bottom-dock" aria-label="Quick Navigation">
+          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'today' ? 'active' : ''}" data-tab="today" title="${t('tab_today')}">
+            <span class="dock-icon">🏠</span>
+            <span class="dock-label">${t('tab_today')}</span>
+          </button>
+          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'health' ? 'active' : ''}" data-tab="health" title="${t('tab_health')}">
+            <span class="dock-icon">❤️</span>
+            <span class="dock-label">${t('tab_health')}</span>
+          </button>
+          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'trends' ? 'active' : ''}" data-tab="trends" title="${t('tab_trends')}">
+            <span class="dock-icon">📊</span>
+            <span class="dock-label">${t('tab_trends')}</span>
+          </button>
+          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'profile' ? 'active' : ''}" data-tab="profile" title="${t('tab_profile')}">
+            <span class="dock-icon">
+              ${profile.avatarUrl ? `
+                <img src="${profile.avatarUrl}" class="dock-avatar-img" alt="Profile" />
+              ` : `
+                <svg class="dock-profile-svg" viewBox="0 0 24 24" width="20" height="20">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                </svg>
+              `}
+            </span>
+            <span class="dock-label">${t('tab_profile')}</span>
+          </button>
+        </nav>
+
+        <button type="button" class="floating-fab-btn" id="global-add-fab-btn" title="${t('fab_add_medicine')}" aria-label="${t('fab_add_medicine')}">
+          <span class="fab-plus-icon">＋</span>
         </button>
-        <button class="bottom-nav-item ${appState.activeTab === 'health' ? 'active' : ''}" data-tab="health" title="${t('tab_health')}">
-          <span class="bottom-nav-icon">❤️</span>
-          <span class="bottom-nav-label">${t('tab_health')}</span>
-        </button>
-        <button class="bottom-nav-item ${appState.activeTab === 'trends' ? 'active' : ''}" data-tab="trends" title="${t('tab_trends')}">
-          <span class="bottom-nav-icon">📊</span>
-          <span class="bottom-nav-label">${t('tab_trends')}</span>
-        </button>
-        <button class="bottom-nav-item ${appState.activeTab === 'profile' ? 'active' : ''}" data-tab="profile" title="${t('tab_profile')}">
-          <span class="bottom-nav-icon">
-            ${profile.avatarUrl ? `
-              <img src="${profile.avatarUrl}" class="nav-avatar-img" alt="Profile" />
-            ` : `
-              <svg class="nav-profile-svg" viewBox="0 0 24 24" width="22" height="22">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-              </svg>
-            `}
-          </span>
-          <span class="bottom-nav-label">${t('tab_profile')}</span>
-        </button>
-      </nav>
+      </div>
     </div>
     
     <!-- Vitals Modal -->
@@ -1653,6 +1740,72 @@ function attachEventListeners() {
     appState.activeTab = 'profile';
     renderApp();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // Floating Action Button (FAB) -> Directly opens Add Medicine Form
+  document.getElementById('global-add-fab-btn')?.addEventListener('click', () => {
+    if (appState.activeTab !== 'today') {
+      appState.activeTab = 'today';
+    }
+    appState.isAddMedOpen = true;
+    renderApp();
+    const form = document.getElementById('add-med-form');
+    form?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+      (document.getElementById('med-name') as HTMLInputElement)?.focus();
+    }, 150);
+  });
+
+  // Quick Header Actions (Language, Reminders/Notifications, Theme)
+  document.getElementById('quick-toggle-lang-btn')?.addEventListener('click', () => {
+    const newLang: Language = appState.language === 'en' ? 'bn' : 'en';
+    appState.language = newLang;
+    setAppLanguage(newLang);
+    setLanguage(newLang);
+    renderApp();
+  });
+
+  document.getElementById('quick-toggle-notif-btn')?.addEventListener('click', async () => {
+    if (!appState.notificationsEnabled) {
+      const granted = await requestNotificationPermission();
+      appState.notificationsEnabled = granted;
+      if (granted) {
+        showQuickToast(t('reminders_active'), '🔔');
+      } else {
+        showQuickToast(t('perm_denied_desc'), '⚠️');
+      }
+    } else {
+      appState.notificationsEnabled = false;
+      showQuickToast(t('reminders_disabled_toast'), '🔕');
+    }
+    syncReminderScheduler();
+    renderApp();
+  });
+
+  document.getElementById('quick-toggle-theme-btn')?.addEventListener('click', () => {
+    appState.isDarkMode = !appState.isDarkMode;
+    document.documentElement.classList.toggle('dark-mode', appState.isDarkMode);
+    localStorage.setItem('meditrack_theme', appState.isDarkMode ? 'dark' : 'light');
+    renderApp();
+  });
+
+  // Bento Grid Sleep & Vitals Loggers
+  document.getElementById('bento-log-sleep-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sleepModal?.showModal();
+  });
+  document.getElementById('bento-sleep-card')?.addEventListener('click', () => {
+    sleepModal?.showModal();
+  });
+
+  document.getElementById('bento-log-vitals-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    (document.getElementById('vitals-form') as HTMLFormElement)?.reset();
+    vitalsModal?.showModal();
+  });
+  document.getElementById('bento-vitals-card')?.addEventListener('click', () => {
+    (document.getElementById('vitals-form') as HTMLFormElement)?.reset();
+    vitalsModal?.showModal();
   });
 
   // Quick Action Buttons in Health View

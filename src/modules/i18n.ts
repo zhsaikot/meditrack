@@ -60,6 +60,14 @@ const translations: Record<Language, Record<string, string>> = {
     days_unit: 'days',
     ml_unit: 'ml',
     hours_unit: 'h',
+    health_score_title: 'Health Adherence Score',
+    score_excellent: 'Excellent Routine',
+    score_good: 'Good Progress',
+    score_attention: 'Needs Attention',
+    bento_water_title: 'Hydration',
+    bento_sleep_title: 'Sleep Record',
+    bento_vitals_title: 'Vitals Monitor',
+    fab_add_medicine: 'Add Medicine',
 
     // Quick Actions
     quick_log_eyebrow: 'QUICK LOG',
@@ -405,6 +413,14 @@ const translations: Record<Language, Record<string, string>> = {
     days_unit: 'দিন',
     ml_unit: 'মিলি',
     hours_unit: 'ঘণ্টা',
+    health_score_title: 'স্বাস্থ্য স্কোর ও রুটিন',
+    score_excellent: 'চমৎকার রুটিন',
+    score_good: 'সন্তোষজনক অগ্রগতি',
+    score_attention: 'যত্ন প্রয়োজন',
+    bento_water_title: 'পানি গ্রহণ',
+    bento_sleep_title: 'ঘুমের হিসাব',
+    bento_vitals_title: 'ভাইটালস নিরীক্ষা',
+    fab_add_medicine: 'নতুন ওষুধ যোগ করুন',
 
     // Quick Actions
     quick_log_eyebrow: 'কুইক লগ',

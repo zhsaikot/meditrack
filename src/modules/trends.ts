@@ -267,3 +267,112 @@ export function calculateCorrelationInsight(
   return "Consistency is key! Keep recording your daily rhythm to unlock more behavioral health correlations.";
 }
 
+/**
+ * Modern SVG Semi-Circle Radial Arc Gauge (Half-Donut Speedometer)
+ * Displays synthesized Health Adherence Score matching Mockup Screen 3
+ */
+export function renderRadialAdherenceGaugeSVG(
+  score: number = 0,
+  scoreLabel: string = '85%',
+  statusText: string = 'Normal',
+  subtitle: string = 'Overview'
+): string {
+  const boundedScore = Math.min(100, Math.max(0, Math.round(score)));
+  const radius = 95;
+  const cx = 140;
+  const cy = 125;
+  const circum = Math.PI * radius; // ~298.45
+  const offset = circum * (1 - boundedScore / 100);
+
+  // Knob position along arc
+  const angle = Math.PI - (boundedScore / 100) * Math.PI;
+  const knobX = cx + radius * Math.cos(angle);
+  const knobY = cy - radius * Math.sin(angle);
+
+  // Determine status color
+  let statusColor = '#0D9488';
+  let statusBg = 'rgba(13, 148, 136, 0.12)';
+  if (boundedScore < 50) {
+    statusColor = '#E11D48';
+    statusBg = 'rgba(225, 29, 72, 0.12)';
+  } else if (boundedScore < 75) {
+    statusColor = '#D97706';
+    statusBg = 'rgba(217, 119, 6, 0.12)';
+  }
+
+  return `
+    <div class="radial-gauge-wrapper">
+      <svg viewBox="0 0 280 155" class="radial-gauge-svg" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#0284C7" />
+            <stop offset="55%" stop-color="#0D9488" />
+            <stop offset="100%" stop-color="#2DD4BF" />
+          </linearGradient>
+          <filter id="knobGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(13, 148, 136, 0.4)" />
+          </filter>
+        </defs>
+
+        <!-- Background Track Arc -->
+        <path
+          d="M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}"
+          fill="none"
+          stroke="var(--border-color, rgba(13, 148, 136, 0.15))"
+          stroke-width="16"
+          stroke-linecap="round"
+        />
+
+        <!-- Active Progress Arc -->
+        <path
+          d="M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}"
+          fill="none"
+          stroke="url(#gaugeGradient)"
+          stroke-width="16"
+          stroke-linecap="round"
+          stroke-dasharray="${circum.toFixed(2)}"
+          stroke-dashoffset="${offset.toFixed(2)}"
+          style="transition: stroke-dashoffset 0.8s ease;"
+        />
+
+        <!-- Active Knob Indicator -->
+        <circle
+          cx="${knobX.toFixed(2)}"
+          cy="${knobY.toFixed(2)}"
+          r="9"
+          fill="#FFFFFF"
+          stroke="${statusColor}"
+          stroke-width="3.5"
+          filter="url(#knobGlow)"
+          style="transition: cx 0.8s ease, cy 0.8s ease;"
+        />
+
+        <!-- Center Score Text -->
+        <text x="${cx}" y="${cy - 20}" text-anchor="middle" font-size="34" font-weight="800" fill="var(--text-main, #0F172A)" font-family="inherit">
+          ${scoreLabel}
+        </text>
+
+        <!-- Subtitle / Overview -->
+        <text x="${cx}" y="${cy}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-muted, #64748B)" font-family="inherit">
+          ${subtitle}
+        </text>
+      </svg>
+
+      <!-- Status Pill Badge -->
+      <div class="radial-gauge-status-row">
+        <span class="gauge-status-pill" style="background:${statusBg}; color:${statusColor}; border:1px solid ${statusColor}40;">
+          ● ${statusText}
+        </span>
+      </div>
+
+      <!-- Segmented Legend -->
+      <div class="radial-gauge-legend">
+        <span class="legend-item"><span class="legend-dot dot-normal"></span> 75-100% Normal</span>
+        <span class="legend-item"><span class="legend-dot dot-moderate"></span> 50-74% Moderate</span>
+        <span class="legend-item"><span class="legend-dot dot-low"></span> &lt;50% Needs Care</span>
+      </div>
+    </div>
+  `;
+}
+
+
