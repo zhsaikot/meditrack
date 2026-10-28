@@ -67,6 +67,9 @@ const translations: Record<Language, Record<string, string>> = {
     log_vitals_btn: '❤️ Log Vitals',
     log_sleep_btn: '😴 Log Sleep',
     add_visit_btn: '📅 Add Visit',
+    schedule_doctor_visit_title: 'Schedule Doctor Visit',
+    schedule_doctor_visit_desc: 'Set reminders for upcoming doctor consultations & checkups',
+    important_badge: 'Important',
 
     // Hydration Card
     hydration_eyebrow: 'BODY RHYTHM',
@@ -372,6 +375,9 @@ const translations: Record<Language, Record<string, string>> = {
     log_vitals_btn: '❤️ ভাইটালস রেকর্ড',
     log_sleep_btn: '😴 ঘুমের তথ্য',
     add_visit_btn: '📅 ডাক্তার সাক্ষাৎ',
+    schedule_doctor_visit_title: 'ডাক্তারের অ্যাপয়েন্টমেন্ট শিডিউল',
+    schedule_doctor_visit_desc: 'নিয়মিত চেকআপ ও প্রেসক্রিপশন ফলো-আপের সময় ঠিক রাখুন',
+    important_badge: 'গুরুত্বপূর্ণ',
 
     // Hydration Card
     hydration_eyebrow: 'শারীরিক ছন্দ',

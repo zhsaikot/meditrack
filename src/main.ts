@@ -557,10 +557,23 @@ function renderApp() {
           <div class="section-heading">
             <div><p class="eyebrow">${t('quick_log_eyebrow')}</p><h2>${t('quick_log_title')}</h2></div>
           </div>
-          <div class="quick-grid">
-            <button class="quick-btn" id="show-vitals-btn">${t('log_vitals_btn')}</button>
-            <button class="quick-btn" id="show-sleep-btn">${t('log_sleep_btn')}</button>
-            <button class="quick-btn" id="show-appointment-btn">${t('add_visit_btn')}</button>
+          
+          <!-- Highlighted Doctor Visit Spotlight Banner -->
+          <div class="doctor-visit-highlight-card">
+            <div class="visit-highlight-info">
+              <span class="visit-badge">⭐ ${t('important_badge')}</span>
+              <h3 class="visit-highlight-title">🗓️ ${t('schedule_doctor_visit_title')}</h3>
+              <p class="visit-highlight-desc">${t('schedule_doctor_visit_desc')}</p>
+            </div>
+            <button class="btn-highlight-visit" id="show-appointment-btn" type="button">
+              <span>＋ ${t('add_visit_btn')}</span>
+            </button>
+          </div>
+
+          <!-- Balanced 2-Column Daily Metric Loggers -->
+          <div class="quick-metrics-row">
+            <button class="quick-btn" id="show-vitals-btn" type="button">${t('log_vitals_btn')}</button>
+            <button class="quick-btn" id="show-sleep-btn" type="button">${t('log_sleep_btn')}</button>
           </div>
         </section>
 
@@ -636,7 +649,10 @@ function renderApp() {
         <section class="card appointments-card">
           <div class="section-heading">
             <div><p class="eyebrow">${t('appts_eyebrow')}</p><h2>${t('appts_title')}</h2></div>
-            <span class="progress-pill">${t('appts_scheduled', { count: formatNumber(upcomingAppts.length) })}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="progress-pill">${t('appts_scheduled', { count: formatNumber(upcomingAppts.length) })}</span>
+              <button class="btn-primary" id="appt-heading-add-btn" style="padding:6px 12px; font-size:0.8rem; border-radius:8px;">＋ ${t('add_visit_btn')}</button>
+            </div>
           </div>
           <div id="appointments-list">
             ${upcomingAppts.length === 0 ? `<p class="empty-state">${t('no_appts')}</p>` : appointmentListHTML}
@@ -1884,11 +1900,13 @@ function attachEventListeners() {
   });
 
   // Appointment Modal
-  document.getElementById('show-appointment-btn')?.addEventListener('click', () => {
+  const openApptModal = () => {
     (document.getElementById('appointment-form') as HTMLFormElement)?.reset();
     (document.getElementById('appt-date') as HTMLInputElement).value = getTodayDateString();
     apptModal?.showModal();
-  });
+  };
+  document.getElementById('show-appointment-btn')?.addEventListener('click', openApptModal);
+  document.getElementById('appt-heading-add-btn')?.addEventListener('click', openApptModal);
 
   document.getElementById('close-appt-btn')?.addEventListener('click', () => {
     apptModal?.close();

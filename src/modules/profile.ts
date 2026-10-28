@@ -1,5 +1,6 @@
 // src/modules/profile.ts
 // MediTrack - Profile & BMI Calculation Module
+import { formatNumber, t } from './i18n';
 
 export interface BMICalculationResult {
   bmi: number;
@@ -77,7 +78,7 @@ export function calculateBMI(weightKg: number, heightCm: number): BMICalculation
 }
 
 /**
- * Generates an SVG visual gauge for BMI
+ * Generates a modern, non-stretched, responsive segmented visual gauge for BMI
  * Scale runs from 15 to 35.
  */
 export function renderBMISpectrumSVG(bmi: number): string {
@@ -85,58 +86,68 @@ export function renderBMISpectrumSVG(bmi: number): string {
   const maxScale = 35;
   const clampedBMI = Math.max(minScale, Math.min(maxScale, bmi || 22));
   
-  // Convert BMI to percentage 0..100 on the 15..35 scale
-  const percent = ((clampedBMI - minScale) / (maxScale - minScale)) * 100;
-  
-  // Range segments:
-  // Underweight: 15 to 18.5 => (3.5 / 20) * 100 = 17.5%
-  // Normal: 18.5 to 24.9 => (6.4 / 20) * 100 = 32%
-  // Overweight: 24.9 to 29.9 => (5.0 / 20) * 100 = 25%
-  // Obese: 29.9 to 35 => (5.1 / 20) * 100 = 25.5%
-  
+  // Convert BMI to percentage 0..100 on the 15..35 scale (clamped with padding)
+  const percent = Math.min(97, Math.max(3, ((clampedBMI - minScale) / (maxScale - minScale)) * 100));
+
+  let pinColor = '#0D9488';
+  let pinCategory = t('normal_weight');
+  if (clampedBMI < 18.5) {
+    pinColor = '#3B82F6';
+    pinCategory = t('underweight');
+  } else if (clampedBMI <= 24.9) {
+    pinColor = '#10B981';
+    pinCategory = t('normal_weight');
+  } else if (clampedBMI <= 29.9) {
+    pinColor = '#F59E0B';
+    pinCategory = t('overweight');
+  } else {
+    pinColor = '#EF4444';
+    pinCategory = t('obese');
+  }
+
+  const formattedBMI = bmi ? formatNumber(bmi.toFixed(1)) : '--';
+
   return `
-    <div class="bmi-gauge-wrap">
-      <svg class="bmi-gauge-svg" viewBox="0 0 400 56" preserveAspectRatio="none" role="img" aria-label="BMI Spectrum Gauge">
-        <defs>
-          <linearGradient id="bmi-spectrum-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#3B82F6" />
-            <stop offset="17.5%" stop-color="#3B82F6" />
-            <stop offset="17.6%" stop-color="#10B981" />
-            <stop offset="49.5%" stop-color="#10B981" />
-            <stop offset="49.6%" stop-color="#F59E0B" />
-            <stop offset="74.5%" stop-color="#F59E0B" />
-            <stop offset="74.6%" stop-color="#EF4444" />
-            <stop offset="100%" stop-color="#EF4444" />
-          </linearGradient>
-        </defs>
+    <div class="bmi-gauge-card-container">
+      <div class="bmi-gauge-track-wrap">
+        <!-- Floating Live Pin Indicator -->
+        <div class="bmi-pin-wrapper" style="left: ${percent}%;">
+          <div class="bmi-pin-bubble" style="background-color: ${pinColor}; border-color: ${pinColor};">
+            <span class="bmi-pin-val">${formattedBMI}</span>
+            <span class="bmi-pin-cat">${pinCategory}</span>
+          </div>
+          <div class="bmi-pin-needle" style="border-top-color: ${pinColor};"></div>
+          <div class="bmi-pin-dot" style="background-color: ${pinColor};"></div>
+        </div>
 
-        <!-- Spectrum Track -->
-        <rect x="10" y="16" width="380" height="12" rx="6" fill="url(#bmi-spectrum-gradient)" opacity="0.85" />
+        <!-- Segmented Colored Pill Track (15 to 35) -->
+        <div class="bmi-segmented-bar">
+          <div class="bmi-segment seg-underweight" style="width: 17.5%;" title="${t('underweight')} (< 18.5)"></div>
+          <div class="bmi-segment seg-normal" style="width: 32.5%;" title="${t('normal_weight')} (18.5 – 24.9)"></div>
+          <div class="bmi-segment seg-overweight" style="width: 25%;" title="${t('overweight')} (25 – 29.9)"></div>
+          <div class="bmi-segment seg-obese" style="width: 25%;" title="${t('obese')} (≥ 30)"></div>
+        </div>
 
-        <!-- Threshold Tick Marks & Numbers -->
-        <text x="10" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">15</text>
-        <text x="76" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">18.5</text>
-        <text x="198" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">25</text>
-        <text x="293" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">30</text>
-        <text x="375" y="42" font-size="10" fill="#94A3B8" class="bmi-tick-label" font-family="system-ui, sans-serif" font-weight="600">35+</text>
+        <!-- Scale Ticks (Aligned to segments) -->
+        <div class="bmi-ticks-row">
+          <span class="bmi-tick" style="left: 0%; transform: translateX(0%);">${formatNumber(15)}</span>
+          <span class="bmi-tick" style="left: 17.5%;">${formatNumber(18.5)}</span>
+          <span class="bmi-tick" style="left: 50%;">${formatNumber(25)}</span>
+          <span class="bmi-tick" style="left: 75%;">${formatNumber(30)}</span>
+          <span class="bmi-tick" style="left: 100%; transform: translateX(-100%);">${formatNumber(35)}+</span>
+        </div>
+      </div>
 
-        <!-- Indicator Needle / Pin -->
-        <g transform="translate(${10 + (380 * percent / 100)}, 0)">
-          <!-- Outer circle -->
-          <circle cx="0" cy="22" r="9" fill="#FFFFFF" class="bmi-needle-outer" stroke="#0F172A" stroke-width="2.5" />
-          <!-- Inner indicator dot -->
-          <circle cx="0" cy="22" r="4.5" fill="#0D9488" />
-          <!-- Downward pointer -->
-          <polygon points="0,11 -4,5 4,5" class="bmi-needle-pointer" fill="#0F172A" />
-        </g>
-      </svg>
-      <div class="bmi-spectrum-labels">
-        <span class="bmi-label-underweight">Underweight</span>
-        <span class="bmi-label-normal">Normal (18.5–24.9)</span>
-        <span class="bmi-label-overweight">Overweight (25–29.9)</span>
-        <span class="bmi-label-obese">Obese (30+)</span>
+      <!-- Modern Legend Pills -->
+      <div class="bmi-category-legend">
+        <span class="bmi-legend-pill blue"><span class="dot"></span> ${t('underweight')}</span>
+        <span class="bmi-legend-pill green"><span class="dot"></span> ${t('normal_weight')}</span>
+        <span class="bmi-legend-pill orange"><span class="dot"></span> ${t('overweight')}</span>
+        <span class="bmi-legend-pill red"><span class="dot"></span> ${t('obese')}</span>
       </div>
     </div>
   `;
 }
+
+export const renderBMISpectrumGauge = renderBMISpectrumSVG;
 
