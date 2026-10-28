@@ -1308,7 +1308,6 @@ function renderApp() {
           <div class="brand-mark">✚</div>
           <div class="brand-text">
             <h1 class="brand-title">${t('brand_name')}</h1>
-            <p class="brand-subtext">${t('brand_subtitle')}</p>
           </div>
         </div>
 
