@@ -419,7 +419,7 @@ function renderApp() {
             <button class="action-btn undo-btn" data-id="${medicine.id}" data-dose-index="${doseIndex}" title="${t('undo_btn_title')}" aria-label="${t('undo_btn_title')}">↩</button>
           `}
           <button class="action-btn edit-btn" data-id="${medicine.id}" title="${t('edit_btn_title')}" aria-label="${t('edit_btn_title')}">✏️</button>
-          <button class="delete-btn" data-id="${medicine.id}" title="${t('delete_btn_title')}" aria-label="${t('delete_btn_title')}">🗑️</button>
+          <button class="action-btn delete-btn" data-id="${medicine.id}" title="${t('delete_btn_title')}" aria-label="${t('delete_btn_title')}">🗑️</button>
         </div>
       </div>
     `;
