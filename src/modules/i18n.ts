@@ -274,11 +274,19 @@ const translations: Record<Language, Record<string, string>> = {
     created_by: 'Created by',
     footer_attribution: 'Created by',
 
-    // Navigation Bar
+    // Navigation Bar & Tabs
     nav_medicines: 'Medicines',
     nav_hydration: 'Water',
     nav_vitals: 'Vitals',
     nav_profile: 'Profile',
+    tab_today: 'Today',
+    tab_health: 'Health',
+    tab_trends: 'Analytics',
+    tab_profile: 'Profile',
+    tab_today_title: "Today's Routine",
+    tab_health_title: 'Health & Biometrics',
+    tab_trends_title: 'Analytics & Reports',
+    tab_profile_title: 'Profile & Settings',
 
     // Reminders & Notifications
     water_reminder_title: 'Hydration Reminder 💧',
@@ -571,11 +579,19 @@ const translations: Record<Language, Record<string, string>> = {
     created_by: 'তৈরি করেছেন',
     footer_attribution: 'তৈরি করেছেন',
 
-    // Navigation Bar
+    // Navigation Bar & Tabs
     nav_medicines: 'ওষুধ',
     nav_hydration: 'পানি',
     nav_vitals: 'ভাইটালস',
     nav_profile: 'প্রোফাইল',
+    tab_today: 'আজকের দিন',
+    tab_health: 'স্বাস্থ্য',
+    tab_trends: 'পরিসংখ্যান',
+    tab_profile: 'প্রোফাইল',
+    tab_today_title: 'আজকের রুটিন',
+    tab_health_title: 'স্বাস্থ্য ও বায়োমেট্রিক্স',
+    tab_trends_title: 'পরিসংখ্যান ও রিপোর্ট',
+    tab_profile_title: 'প্রোফাইল ও সেটিংস',
 
     // Reminders & Notifications
     water_reminder_title: 'পানি পানের রিমাইন্ডার 💧',

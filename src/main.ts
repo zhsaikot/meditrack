@@ -70,6 +70,8 @@ import { t, setLanguage, formatNumber, Language } from './modules/i18n'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
+export type TabKey = 'today' | 'health' | 'trends' | 'profile';
+
 // App State
 let appState = {
   currentMood: 0,
@@ -78,7 +80,8 @@ let appState = {
   notificationsEnabled: false,
   language: getAppLanguage() as Language,
   selectedTimeframe: 'weekly' as 'daily' | 'weekly' | 'monthly',
-  isAddMedOpen: false
+  isAddMedOpen: false,
+  activeTab: 'today' as TabKey
 };
 
 // Default dose time presets based on doses per day
@@ -378,6 +381,484 @@ function renderApp() {
   const timeframeDays = appState.selectedTimeframe === 'daily' ? 1 : appState.selectedTimeframe === 'monthly' ? 30 : 7;
   const timeframeSummary = getHistoricalDataSummary(timeframeDays);
 
+  let tabContentHTML = '';
+
+  if (appState.activeTab === 'today') {
+    tabContentHTML = `
+      <div class="tab-content tab-today">
+        <!-- Hero Routine Stats -->
+        <div class="hero-routine-strip">
+          <div class="hero-stat-card">
+            <span class="hero-stat-val">${formatNumber(adherenceRate)}%</span>
+            <span class="hero-stat-lbl">${t('stat_adherence')}</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="hero-stat-val">${formatNumber(waterAmount)}${t('ml_unit')}</span>
+            <span class="hero-stat-lbl">${t('stat_water')}</span>
+          </div>
+          <div class="hero-stat-card">
+            <span class="hero-stat-val">${formatNumber(streakDays)} ${t('days_unit')}</span>
+            <span class="hero-stat-lbl">${t('stat_streak')}</span>
+          </div>
+        </div>
+
+        <!-- Next Dose Spotlight Banner (if any pending medicine) -->
+        ${nextMedicine ? `
+          <div class="next-dose-spotlight">
+            <div class="spotlight-info">
+              <div class="spotlight-icon-circle">💊</div>
+              <div class="spotlight-details">
+                <span class="spotlight-tag">${t('next_up_badge')}</span>
+                <span class="spotlight-name">${escapeHtml(nextMedicine.medicine.name)} (${escapeHtml(nextMedicine.medicine.dosage)})</span>
+                <span class="spotlight-time">🕐 ${formatTime(nextMedicine.time)} ${nextMedicine.totalDoses > 1 ? `· ${t('dose_tag', { index: formatNumber(nextMedicine.doseIndex + 1), total: formatNumber(nextMedicine.totalDoses) })}` : ''}</span>
+              </div>
+            </div>
+            <button class="spotlight-take-btn take-btn" data-id="${nextMedicine.medicine.id}" data-dose-index="${nextMedicine.doseIndex}">
+              ✓ ${t('take_btn_title')}
+            </button>
+          </div>
+        ` : ''}
+
+        <!-- Harmonized Hydration Tracker -->
+        <section class="card water-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">${t('hydration_eyebrow')}</p><h2>${t('hydration_title')}</h2></div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="goal-setting-btn" id="edit-water-goal-btn" title="Customize daily water goal">⚙️ ${formatNumber(hydrationGoal)}${t('ml_unit')} Goal</button>
+              <span class="water-icon">💧</span>
+            </div>
+          </div>
+          <p class="card-intro">${waterAmount >= hydrationGoal ? t('water_intro_at_goal') : t('water_intro_remaining', { remaining: formatNumber(hydrationGoal - waterAmount) })}</p>
+          <div class="water-progress">
+            <div class="progress-bar" style="width: ${waterProgress}%"></div>
+          </div>
+          <div class="water-stats">
+            <span>${formatNumber(waterAmount)}${t('ml_unit')} / ${formatNumber(hydrationGoal)}${t('ml_unit')}</span>
+            <span>${formatNumber(Math.round(waterProgress))}%</span>
+          </div>
+          <div class="water-actions">
+            <button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">${t('remove_250ml')}</button>
+            <button class="btn-water" id="add-water-btn">${t('add_250ml')} <span>+</span></button>
+          </div>
+        </section>
+
+        <!-- Medicine Schedule Card with Stock Tracking & Actions -->
+        <section class="card list-card" id="medicine-schedule-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">${t('schedule_eyebrow')}</p><h2>${t('schedule_title')}</h2></div>
+            <span class="progress-pill">${t('taken_badge', { taken: formatNumber(medProgress.taken), total: formatNumber(medProgress.total) })}</span>
+          </div>
+
+          ${lowInventoryMeds.length > 0 ? `
+            <div class="refill-alert-banner">
+              <span>${t('refill_alert_banner', { count: formatNumber(lowInventoryMeds.length), plural: lowInventoryMeds.length > 1 ? 's have' : ' has' })}</span>
+            </div>
+          ` : ''}
+
+          <div id="medicine-list">
+            ${todaysMedList.length === 0 ? `
+              <div class="empty-state-box">
+                <div class="empty-state-icon">💊</div>
+                <h3 class="empty-state-title">${t('empty_meds_title')}</h3>
+                <p class="empty-state-desc">${t('empty_meds_desc')}</p>
+                <button class="empty-state-btn" id="empty-add-med-btn">${t('empty_meds_btn')}</button>
+              </div>
+            ` : medicineListHTML}
+          </div>
+        </section>
+
+        <!-- Collapsible Add Medicine Accordion -->
+        <section class="card add-med-card ${appState.isAddMedOpen ? 'expanded' : 'collapsed'}">
+          <div class="section-heading accordion-header" id="add-med-accordion-header" role="button" tabindex="0" aria-expanded="${appState.isAddMedOpen}">
+            <div>
+              <p class="eyebrow">${t('routine_eyebrow')}</p>
+              <h2>${t('routine_title')}</h2>
+              ${!appState.isAddMedOpen ? `<div class="accordion-collapsed-hint"><span>＋</span> ${t('expand_form_btn')}</div>` : ''}
+            </div>
+            <button type="button" class="accordion-toggle-btn" id="toggle-add-med-btn" aria-label="${appState.isAddMedOpen ? t('collapse_form_btn') : t('expand_form_btn')}">
+              <span class="accordion-icon">${appState.isAddMedOpen ? '✕' : '＋'}</span>
+            </button>
+          </div>
+          <div class="accordion-body ${appState.isAddMedOpen ? 'open' : ''}">
+            <form id="add-med-form">
+              <input type="text" id="med-name" placeholder="${t('med_name_ph')}" required />
+              <input type="text" id="med-dosage" placeholder="${t('med_dosage_ph')}" required />
+              
+              <div class="form-row">
+                <label class="form-label">${t('doses_per_day_label')}
+                  <select id="med-doses-per-day">
+                    <option value="1">${t('dose_1_time')}</option>
+                    <option value="2">${t('dose_2_times')}</option>
+                    <option value="3">${t('dose_3_times')}</option>
+                    <option value="4">${t('dose_4_times')}</option>
+                  </select>
+                </label>
+                <label class="form-label">${t('frequency_label')}
+                  <select id="med-frequency">
+                    <option value="daily">${t('freq_daily')}</option>
+                    <option value="weekdays">${t('freq_weekdays')}</option>
+                    <option value="weekends">${t('freq_weekends')}</option>
+                  </select>
+                </label>
+              </div>
+
+              <div id="dose-times-container">
+                <!-- Dynamic dose time pickers rendered here -->
+              </div>
+
+              <div class="form-row">
+                <label class="form-label">${t('initial_supply_label')}
+                  <input type="number" id="med-inventory" placeholder="${t('pills_left_ph')}" min="0" value="30" />
+                </label>
+              </div>
+              <button type="submit" class="btn-primary">${t('add_medicine_btn')}</button>
+            </form>
+          </div>
+        </section>
+
+        <!-- Mood & Symptom Journal -->
+        <section class="card mood-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">${t('mental_eyebrow')}</p><h2>${t('mental_title')}</h2></div>
+            <span class="section-icon">☼</span>
+          </div>
+          <p class="mood-prompt">${t('rate_mood_prompt')}</p>
+          <div class="emoji-grid">
+            ${moodEmojis.map(e => `
+              <button class="emoji-btn ${appState.currentMood === e.val ? 'selected' : ''}" data-mood="${e.val}">
+                <span class="emoji-icon">${e.icon}</span>
+                <span class="emoji-label">${e.label}</span>
+              </button>
+            `).join('')}
+          </div>
+
+          <p class="mood-prompt">${t('any_symptoms_prompt')}</p>
+          <div class="symptom-grid">
+            ${symptomsList.map(s => {
+              const isSelected = appState.currentSymptoms.includes(s.id);
+              return `
+                <button class="symptom-btn ${isSelected ? 'selected' : ''}" data-symptom="${s.id}">
+                  ${isSelected ? '✓ ' : ''}${s.label}
+                </button>
+              `;
+            }).join('')}
+          </div>
+
+          <textarea id="mood-notes" placeholder="${t('journal_placeholder')}" rows="3">${escapeHtml(notesValue)}</textarea>
+          <button class="btn-primary" id="save-mood-btn">${t('save_checkin_btn')} <span>→</span></button>
+        </section>
+      </div>
+    `;
+  } else if (appState.activeTab === 'health') {
+    tabContentHTML = `
+      <div class="tab-content tab-health">
+        <!-- Quick Log Actions Bar -->
+        <section class="card quick-actions">
+          <div class="section-heading">
+            <div><p class="eyebrow">${t('quick_log_eyebrow')}</p><h2>${t('quick_log_title')}</h2></div>
+          </div>
+          <div class="quick-grid">
+            <button class="quick-btn" id="show-vitals-btn">${t('log_vitals_btn')}</button>
+            <button class="quick-btn" id="show-sleep-btn">${t('log_sleep_btn')}</button>
+            <button class="quick-btn" id="show-appointment-btn">${t('add_visit_btn')}</button>
+          </div>
+        </section>
+
+        <!-- Body Mass Index (BMI) & Biometrics Card -->
+        <section class="card bmi-card">
+          <div class="section-heading">
+            <div><p class="eyebrow" style="color: ${bmiResult.color}">${t('bmi_eyebrow')}</p><h2>${t('bmi_title')}</h2></div>
+            <span class="bmi-badge" style="background: ${bmiResult.badgeBg}; color: ${bmiResult.color}">● ${localizedCategory}</span>
+          </div>
+          
+          <div class="bmi-grid">
+            <div class="bmi-stat-box">
+              <span class="bmi-stat-label">${t('current_bmi')}</span>
+              <span class="bmi-stat-num" style="color: ${bmiResult.color}">${formatNumber(bmiResult.bmi || '--')}</span>
+              <span class="bmi-stat-sub">${t('target_bmi_range')}</span>
+            </div>
+            <div class="bmi-stat-box">
+              <span class="bmi-stat-label">${t('recorded_weight')}</span>
+              <span class="bmi-stat-num">${formatNumber(userWeight)} <span style="font-size:0.9rem; font-weight:600;">kg</span></span>
+              <span class="bmi-stat-sub">${t('height_prefix', { height: formatNumber(userHeight) })}</span>
+            </div>
+            <div class="bmi-stat-box">
+              <span class="bmi-stat-label">${t('healthy_weight_range')}</span>
+              <span class="bmi-stat-num" style="font-size: 1.25rem;">${formatNumber(bmiResult.minHealthyWeight)}–${formatNumber(bmiResult.maxHealthyWeight)} <span style="font-size:0.85rem; font-weight:600;">kg</span></span>
+              <span class="bmi-stat-sub">${t('who_standard')}</span>
+            </div>
+          </div>
+
+          ${renderBMISpectrumSVG(bmiResult.bmi)}
+
+          <div class="bmi-advice-box">
+            <span>💡 ${escapeHtml(localizedAdvice)}</span>
+            <button class="bmi-edit-link" id="bmi-update-metrics-btn">${t('edit_profile_btn')}</button>
+          </div>
+        </section>
+
+        <!-- Latest Vitals Display -->
+        <section class="card vitals-display">
+          <div class="section-heading">
+            <div><p class="eyebrow">${t('vitals_eyebrow')}</p><h2>${t('vitals_title')}</h2></div>
+            <button class="btn-primary" id="vitals-quick-add-btn" style="padding:6px 12px; font-size:0.8rem; border-radius:8px;">＋ ${t('log_vitals_btn')}</button>
+          </div>
+          ${latestVitals ? `
+            <div class="vitals-grid">
+              ${latestVitals.heartRate ? `<div class="vital-item"><span class="vital-label">${t('heart_rate_label')}</span><span class="vital-value">${formatNumber(latestVitals.heartRate)} bpm</span></div>` : ''}
+              ${latestVitals.bloodPressure ? `<div class="vital-item"><span class="vital-label">${t('blood_pressure_label')}</span><span class="vital-value">${formatNumber(latestVitals.bloodPressure.systolic)}/${formatNumber(latestVitals.bloodPressure.diastolic)} mmHg</span></div>` : ''}
+              ${latestVitals.weight ? `<div class="vital-item"><span class="vital-label">${t('weight_modal_label')}</span><span class="vital-value">${formatNumber(latestVitals.weight)} kg</span></div>` : ''}
+              ${latestVitals.temperature ? `<div class="vital-item"><span class="vital-label">${t('temperature_label')}</span><span class="vital-value">${formatNumber(latestVitals.temperature)}°C</span></div>` : ''}
+            </div>
+          ` : `
+            <p class="empty-state" style="margin: 10px 0;">${appState.language === 'bn' ? 'কোনো ভাইটালস রেকর্ড নেই। উপরে ক্লিক করে যুক্ত করুন।' : 'No vitals logged yet. Click above to record.'}</p>
+          `}
+        </section>
+
+        <!-- Latest Sleep Display -->
+        <section class="card sleep-display">
+          <div class="section-heading">
+            <div><p class="eyebrow">${t('sleep_eyebrow')}</p><h2>${t('sleep_title')}</h2></div>
+            <button class="btn-primary" id="sleep-quick-add-btn" style="padding:6px 12px; font-size:0.8rem; border-radius:8px;">＋ ${t('log_sleep_btn')}</button>
+          </div>
+          ${latestSleep ? `
+            <div class="sleep-summary">
+              <div class="sleep-stat"><span class="sleep-value">${formatNumber(latestSleep.duration)}${t('hours_unit')}</span><span class="sleep-label">${t('duration_label')}</span></div>
+              <div class="sleep-stat"><span class="sleep-value">${'⭐'.repeat(latestSleep.quality)}${'☆'.repeat(5 - latestSleep.quality)}</span><span class="sleep-label">${t('quality_label')}</span></div>
+              <div class="sleep-stat"><span class="sleep-value">${formatTime(latestSleep.bedtime)} - ${formatTime(latestSleep.wakeTime)}</span><span class="sleep-label">${t('schedule_label')}</span></div>
+            </div>
+          ` : `
+            <p class="empty-state" style="margin: 10px 0;">${appState.language === 'bn' ? 'কোনো ঘুমের তথ্য নেই। উপরে ক্লিক করে যুক্ত করুন।' : 'No sleep logged yet. Click above to record.'}</p>
+          `}
+        </section>
+
+        <!-- Appointments List Section -->
+        <section class="card appointments-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">${t('appts_eyebrow')}</p><h2>${t('appts_title')}</h2></div>
+            <span class="progress-pill">${t('appts_scheduled', { count: formatNumber(upcomingAppts.length) })}</span>
+          </div>
+          <div id="appointments-list">
+            ${upcomingAppts.length === 0 ? `<p class="empty-state">${t('no_appts')}</p>` : appointmentListHTML}
+          </div>
+        </section>
+      </div>
+    `;
+  } else if (appState.activeTab === 'trends') {
+    tabContentHTML = `
+      <div class="tab-content tab-trends">
+        <!-- Historical Trends & Behavioral Patterns -->
+        <section class="card trends-card">
+          <div class="trends-header-row">
+            <div>
+              <p class="eyebrow">${t('trends_eyebrow')}</p>
+              <h2>${t('trends_title')}</h2>
+            </div>
+            <div class="timeframe-switcher" role="tablist" aria-label="${t('timeframe_label')}">
+              <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'daily' ? 'active' : ''}" data-timeframe="daily">
+                ${t('view_daily')}
+              </button>
+              <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'weekly' ? 'active' : ''}" data-timeframe="weekly">
+                ${t('view_weekly')}
+              </button>
+              <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'monthly' ? 'active' : ''}" data-timeframe="monthly">
+                ${t('view_monthly')}
+              </button>
+            </div>
+          </div>
+
+          <!-- Period Summary Metrics Banner -->
+          <div class="timeframe-summary-banner">
+            <div class="timeframe-stat-item">
+              <span class="timeframe-stat-val">${formatNumber(timeframeSummary.adherence.percentage, appState.language)}%</span>
+              <span class="timeframe-stat-label">${t('stat_adherence')}</span>
+            </div>
+            <div class="timeframe-stat-item">
+              <span class="timeframe-stat-val">${formatNumber(timeframeSummary.hydration.dailyAvgMl, appState.language)} ${t('ml_unit')}</span>
+              <span class="timeframe-stat-label">${t('stat_water')} (Avg)</span>
+            </div>
+            <div class="timeframe-stat-item">
+              <span class="timeframe-stat-val">${timeframeSummary.sleep.avgDuration !== null ? formatNumber(timeframeSummary.sleep.avgDuration, appState.language) + t('hours_unit') : '--'}</span>
+              <span class="timeframe-stat-label">${t('stat_sleep')}</span>
+            </div>
+            <div class="timeframe-stat-item">
+              <span class="timeframe-stat-val">${timeframeSummary.vitals.avgSystolic && timeframeSummary.vitals.avgDiastolic ? `${formatNumber(timeframeSummary.vitals.avgSystolic, appState.language)}/${formatNumber(timeframeSummary.vitals.avgDiastolic, appState.language)}` : '--'}</span>
+              <span class="timeframe-stat-label">${appState.language === 'bn' ? 'গড় রক্তচাপ' : 'Avg BP'}</span>
+            </div>
+          </div>
+
+          <div class="trend-chart-container">
+            <div class="trend-chart-header">
+              <span>${t('chart_hydration_title')} (${appState.selectedTimeframe === 'daily' ? t('view_daily') : appState.selectedTimeframe === 'monthly' ? t('view_monthly') : t('view_weekly')})</span>
+              <span class="trend-legend"><span class="legend-item"><span class="legend-color" style="background:#0D9488"></span> ${t('chart_goal_met')}</span></span>
+            </div>
+            ${renderHydrationChartSVG(data.hydrationLogs, hydrationGoal, timeframeDays)}
+          </div>
+
+          <div class="trend-chart-container">
+            <div class="trend-chart-header">
+              <span>${t('chart_med_sleep_title')} (${appState.selectedTimeframe === 'daily' ? t('view_daily') : appState.selectedTimeframe === 'monthly' ? t('view_monthly') : t('view_weekly')})</span>
+              <div class="trend-legend">
+                <span class="legend-item"><span class="legend-color" style="background:#8B5CF6"></span> ${t('chart_legend_med')}</span>
+                <span class="legend-item"><span class="legend-color" style="background:#3B82F6"></span> ${t('chart_legend_sleep')}</span>
+              </div>
+            </div>
+            ${renderMoodSleepChartSVG(data.moodEntries, data.sleepLogs, timeframeDays)}
+          </div>
+
+          <div class="correlation-box">
+            ${correlationInsight}
+          </div>
+
+          <div class="timeframe-footer-actions">
+            <button type="button" class="timeframe-report-btn" id="open-report-from-trends-btn">
+              📄 ${t('download_pdf_report')}
+            </button>
+          </div>
+        </section>
+      </div>
+    `;
+  } else if (appState.activeTab === 'profile') {
+    tabContentHTML = `
+      <div class="tab-content tab-profile">
+        <div class="profile-card">
+          <!-- Top Header with Integrated Avatar -->
+          <div class="profile-header-banner">
+            <div class="profile-avatar-inline">
+              <div class="avatar-preview-circle" id="profile-tab-avatar-preview">
+                ${profile.avatarUrl ? `<img src="${profile.avatarUrl}" alt="Profile avatar" />` : `<span class="avatar-preview-fallback">${firstName ? escapeHtml(firstName[0]) : '👤'}</span>`}
+              </div>
+              <div class="avatar-meta-inline">
+                <div class="avatar-btn-row">
+                  <label class="avatar-upload-btn" for="avatar-file-input">
+                    📷 ${profile.avatarUrl ? t('avatar_change_btn') : 'Upload Photo'}
+                  </label>
+                  <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" />
+                  <button type="button" class="avatar-remove-btn" id="remove-avatar-btn" style="${profile.avatarUrl ? '' : 'display:none;'}">${t('avatar_remove_btn')}</button>
+                </div>
+                <span class="avatar-hint">${t('avatar_hint')}</span>
+              </div>
+            </div>
+            <div class="profile-title-and-close">
+              <h3 class="profile-modal-heading" style="margin:0;">${t('profile_modal_heading')}</h3>
+            </div>
+          </div>
+
+          <!-- Section 1: App Preferences & Settings -->
+          <div class="profile-preferences-section" style="margin-top:16px;">
+            <div class="profile-section-legend">⚙️ ${t('preferences_legend')}</div>
+            <div class="profile-preferences-row">
+              <div class="pref-item">
+                <span class="pref-label">${t('language_label')}</span>
+                <button type="button" class="pref-toggle-btn" id="modal-toggle-lang-btn" title="${t('switch_language')}">
+                  <span class="pref-icon">🌐</span>
+                  <span>${appState.language === 'bn' ? 'বাংলা' : 'English'}</span>
+                </button>
+              </div>
+              <div class="pref-item">
+                <span class="pref-label">${t('reminders_label')}</span>
+                <button type="button" class="pref-toggle-btn ${appState.notificationsEnabled ? 'active' : ''}" id="modal-toggle-notifications-btn" title="${appState.notificationsEnabled ? t('reminders_active') : t('enable_reminders')}">
+                  <span class="pref-icon">${appState.notificationsEnabled ? '🔔' : '🔕'}</span>
+                  <span>${appState.notificationsEnabled ? t('status_enabled') : t('status_disabled')}</span>
+                </button>
+              </div>
+              <div class="pref-item">
+                <span class="pref-label">${t('theme_label')}</span>
+                <button type="button" class="pref-toggle-btn" id="modal-toggle-theme-btn" title="${t('toggle_theme_title')}">
+                  <span class="pref-icon">${appState.isDarkMode ? '🌙' : '☀️'}</span>
+                  <span>${appState.isDarkMode ? t('theme_dark') : t('theme_light')}</span>
+                </button>
+              </div>
+            </div>
+            <div class="pref-test-row">
+              <button type="button" class="pref-test-btn" id="modal-test-reminder-btn">
+                ${t('test_reminder_btn')}
+              </button>
+            </div>
+          </div>
+
+          <form id="profile-form">
+            <div class="profile-fields-grid">
+              <div class="field-fullname">
+                <label class="form-label" for="profile-name">${t('fullname_label')}</label>
+                <input type="text" id="profile-name" placeholder="${t('fullname_ph')}" value="${escapeHtml(profile.name || '')}" />
+              </div>
+
+              <div class="field-blood">
+                <label class="form-label" for="profile-blood-type">${t('blood_type_label')}</label>
+                <select id="profile-blood-type">
+                  <option value="A+" ${profile.bloodType === 'A+' ? 'selected' : ''}>A+</option>
+                  <option value="A-" ${profile.bloodType === 'A-' ? 'selected' : ''}>A-</option>
+                  <option value="B+" ${profile.bloodType === 'B+' ? 'selected' : ''}>B+</option>
+                  <option value="B-" ${profile.bloodType === 'B-' ? 'selected' : ''}>B-</option>
+                  <option value="AB+" ${profile.bloodType === 'AB+' ? 'selected' : ''}>AB+</option>
+                  <option value="AB-" ${profile.bloodType === 'AB-' ? 'selected' : ''}>AB-</option>
+                  <option value="O+" ${profile.bloodType === 'O+' ? 'selected' : ''}>O+</option>
+                  <option value="O-" ${profile.bloodType === 'O-' ? 'selected' : ''}>O-</option>
+                </select>
+              </div>
+
+              <div class="field-height">
+                <label class="form-label" for="profile-height">${t('height_cm_label')}</label>
+                <input type="number" id="profile-height" placeholder="170" min="50" max="260" required value="${profile.heightCm || 170}" />
+              </div>
+
+              <div class="field-weight">
+                <label class="form-label" for="profile-weight">${t('weight_kg_label')}</label>
+                <input type="number" id="profile-weight" step="0.1" placeholder="70.0" min="20" max="400" required value="${profile.weightKg || 70}" />
+              </div>
+
+              <div class="field-water">
+                <label class="form-label" for="profile-water-goal">${t('water_goal_label')}</label>
+                <input type="number" id="profile-water-goal" placeholder="2000" min="500" max="8000" step="50" required value="${hydrationGoal}" />
+              </div>
+            </div>
+
+            <!-- Emergency Contact -->
+            <div class="emergency-contact-fieldset" style="margin-top:16px;">
+              <div class="profile-section-legend">${t('emergency_legend')}</div>
+              <div class="emergency-fields-grid">
+                <div class="field-em-name">
+                  <label class="form-label" for="profile-emergency-name">${t('em_name_label')}</label>
+                  <input type="text" id="profile-emergency-name" placeholder="${t('em_name_ph')}" value="${escapeHtml(profile.emergencyContact?.name || '')}" />
+                </div>
+
+                <div class="field-em-phone">
+                  <label class="form-label" for="profile-emergency-phone">${t('em_phone_label')}</label>
+                  <input type="tel" id="profile-emergency-phone" placeholder="${t('em_phone_ph')}" value="${escapeHtml(profile.emergencyContact?.phone || '')}" />
+                </div>
+
+                <div class="field-em-rel">
+                  <label class="form-label" for="profile-emergency-rel">${t('em_rel_label')}</label>
+                  <input type="text" id="profile-emergency-rel" placeholder="${t('em_rel_ph')}" value="${escapeHtml(profile.emergencyContact?.relationship || '')}" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Data Backup & Restore -->
+            <div class="profile-backup-section">
+              <h4 class="profile-backup-title">💾 ${t('backup_section_title')}</h4>
+              <p class="profile-backup-desc">${t('backup_section_desc')}</p>
+              <div class="profile-backup-row">
+                <button type="button" class="profile-backup-btn" id="modal-export-data-btn">
+                  💾 ${t('backup_download_btn')}
+                </button>
+                <label class="profile-backup-btn" for="modal-import-file">
+                  📁 ${t('backup_restore_btn')}
+                </label>
+                <input type="file" id="modal-import-file" accept=".json" style="display:none;" />
+              </div>
+            </div>
+
+            <div class="profile-modal-actions" style="margin-top:20px;">
+              <button type="submit" class="btn-primary" id="save-profile-btn" style="width:100%;">💾 ${t('save_profile_btn')}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
   app.innerHTML = `
     <div class="container">
       <header class="main-header">
@@ -389,6 +870,13 @@ function renderApp() {
             <p class="subtitle">${t('brand_subtitle')}</p>
           </div>
         </div>
+        <div class="header-avatar-pill" id="header-avatar-btn" role="button" tabindex="0" title="${t('tab_profile')}">
+          ${profile.avatarUrl ? `
+            <img src="${profile.avatarUrl}" class="nav-avatar-img" alt="Profile" />
+          ` : `
+            <div class="avatar-fallback-mini">${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</div>
+          `}
+        </div>
       </header>
 
       <div class="date-strip">
@@ -397,375 +885,29 @@ function renderApp() {
         <span class="date-strip-note">${healthInsight}</span>
       </div>
 
-      <section class="welcome-panel">
-        <div>
-          <p class="eyebrow">${greetingEyebrow}</p>
-          <h2>${firstName ? t('welcome_back', { name: escapeHtml(firstName) }) : t('take_day_step')}</h2>
-          <p>${nextMedicine ? `${t('next_up_prefix')}<strong>${escapeHtml(nextMedicine.medicine.name)}</strong>${nextMedicine.totalDoses > 1 ? ` (${t('dose_tag', { index: formatNumber(nextMedicine.doseIndex + 1), total: formatNumber(nextMedicine.totalDoses) })})` : ''} ${t('at_time')} ${formatTime(nextMedicine.time)}.` : t('schedule_clear')}${nextAppt ? `<br>📅 <strong>${escapeHtml(nextAppt.title)}</strong> ${t('with_doctor', { doctor: escapeHtml(nextAppt.doctor) })} (${formatAppointmentDisplay(nextAppt).countdown})` : ''}</p>
-        </div>
-        <div class="welcome-orbit" aria-hidden="true"><span>✦</span></div>
-      </section>
-
-      <!-- Statistics Card (2x2 Grid Layout) -->
-      <section class="card stats-card">
-        <div class="section-heading light-heading">
-          <div><p class="eyebrow">${t('overview_eyebrow')}</p><h2>${t('overview_title')}</h2></div>
-          <span class="section-kicker">${t('live_badge')}</span>
-        </div>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-value">${formatNumber(adherenceRate)}%</div>
-            <div class="stat-label">${t('stat_adherence')}</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">${formatNumber(waterAmount)}${t('ml_unit')}</div>
-            <div class="stat-label">${t('stat_water')}</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">${sleepAvg.avgDuration !== null ? formatNumber(sleepAvg.avgDuration) + t('hours_unit') : '--'}</div>
-            <div class="stat-label">${t('stat_sleep')}</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-value">${formatNumber(streakDays)} ${t('days_unit')}</div>
-            <div class="stat-label">${t('stat_streak')}</div>
-          </div>
-        </div>
-
-        <!-- Milestones Strip -->
-        <div class="milestones-strip">
-          ${milestoneData.milestones.map(m => `
-            <div class="milestone-badge ${m.unlocked ? '' : 'locked'}" title="${m.description}">
-              <span>${m.icon}</span>
-              <span>${m.title}</span>
-            </div>
-          `).join('')}
-        </div>
-        ${milestoneData.nextBadge ? `
-          <div class="badge-progress-bar" title="Next Badge: ${milestoneData.nextBadge.title} (${milestoneData.progressToNext}% to goal)">
-            <div class="badge-progress-fill" style="width: ${milestoneData.progressToNext}%"></div>
-          </div>
-        ` : ''}
-      </section>
-
-      <!-- Quick Actions Bar -->
-      <section class="card quick-actions">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('quick_log_eyebrow')}</p><h2>${t('quick_log_title')}</h2></div>
-        </div>
-        <div class="quick-grid">
-          <button class="quick-btn" id="show-vitals-btn">${t('log_vitals_btn')}</button>
-          <button class="quick-btn" id="show-sleep-btn">${t('log_sleep_btn')}</button>
-          <button class="quick-btn" id="show-appointment-btn">${t('add_visit_btn')}</button>
-        </div>
-      </section>
-
-      <!-- Harmonized Hydration Tracker -->
-      <section class="card water-card">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('hydration_eyebrow')}</p><h2>${t('hydration_title')}</h2></div>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <button class="goal-setting-btn" id="edit-water-goal-btn" title="Customize daily water goal">⚙️ ${formatNumber(hydrationGoal)}${t('ml_unit')} Goal</button>
-            <span class="water-icon">💧</span>
-          </div>
-        </div>
-        <p class="card-intro">${waterAmount >= hydrationGoal ? t('water_intro_at_goal') : t('water_intro_remaining', { remaining: formatNumber(hydrationGoal - waterAmount) })}</p>
-        <div class="water-progress">
-          <div class="progress-bar" style="width: ${waterProgress}%"></div>
-        </div>
-        <div class="water-stats">
-          <span>${formatNumber(waterAmount)}${t('ml_unit')} / ${formatNumber(hydrationGoal)}${t('ml_unit')}</span>
-          <span>${formatNumber(Math.round(waterProgress))}%</span>
-        </div>
-        <div class="water-actions">
-          <button class="btn-water secondary-water" id="remove-water-btn" aria-label="Remove 250ml">${t('remove_250ml')}</button>
-          <button class="btn-water" id="add-water-btn">${t('add_250ml')} <span>+</span></button>
-        </div>
-      </section>
-
-      <!-- Body Mass Index (BMI) & Biometrics Card -->
-      <section class="card bmi-card">
-        <div class="section-heading">
-          <div><p class="eyebrow" style="color: ${bmiResult.color}">${t('bmi_eyebrow')}</p><h2>${t('bmi_title')}</h2></div>
-          <span class="bmi-badge" style="background: ${bmiResult.badgeBg}; color: ${bmiResult.color}">● ${localizedCategory}</span>
-        </div>
-        
-        <div class="bmi-grid">
-          <div class="bmi-stat-box">
-            <span class="bmi-stat-label">${t('current_bmi')}</span>
-            <span class="bmi-stat-num" style="color: ${bmiResult.color}">${formatNumber(bmiResult.bmi || '--')}</span>
-            <span class="bmi-stat-sub">${t('target_bmi_range')}</span>
-          </div>
-          <div class="bmi-stat-box">
-            <span class="bmi-stat-label">${t('recorded_weight')}</span>
-            <span class="bmi-stat-num">${formatNumber(userWeight)} <span style="font-size:0.9rem; font-weight:600;">kg</span></span>
-            <span class="bmi-stat-sub">${t('height_prefix', { height: formatNumber(userHeight) })}</span>
-          </div>
-          <div class="bmi-stat-box">
-            <span class="bmi-stat-label">${t('healthy_weight_range')}</span>
-            <span class="bmi-stat-num" style="font-size: 1.25rem;">${formatNumber(bmiResult.minHealthyWeight)}–${formatNumber(bmiResult.maxHealthyWeight)} <span style="font-size:0.85rem; font-weight:600;">kg</span></span>
-            <span class="bmi-stat-sub">${t('who_standard')}</span>
-          </div>
-        </div>
-
-        ${renderBMISpectrumSVG(bmiResult.bmi)}
-
-        <div class="bmi-advice-box">
-          <span>💡 ${escapeHtml(localizedAdvice)}</span>
-          <button class="bmi-edit-link" id="bmi-update-metrics-btn">${t('edit_profile_btn')}</button>
-        </div>
-      </section>
-
-      <!-- Mood & Symptom Journal -->
-      <section class="card mood-card">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('mental_eyebrow')}</p><h2>${t('mental_title')}</h2></div>
-          <span class="section-icon">☼</span>
-        </div>
-        <p class="mood-prompt">${t('rate_mood_prompt')}</p>
-        <div class="emoji-grid">
-          ${moodEmojis.map(e => `
-            <button class="emoji-btn ${appState.currentMood === e.val ? 'selected' : ''}" data-mood="${e.val}">
-              <span class="emoji-icon">${e.icon}</span>
-              <span class="emoji-label">${e.label}</span>
-            </button>
-          `).join('')}
-        </div>
-
-        <p class="mood-prompt">${t('any_symptoms_prompt')}</p>
-        <div class="symptom-grid">
-          ${symptomsList.map(s => {
-            const isSelected = appState.currentSymptoms.includes(s.id);
-            return `
-              <button class="symptom-btn ${isSelected ? 'selected' : ''}" data-symptom="${s.id}">
-                ${isSelected ? '✓ ' : ''}${s.label}
-              </button>
-            `;
-          }).join('')}
-        </div>
-
-        <textarea id="mood-notes" placeholder="${t('journal_placeholder')}" rows="3">${escapeHtml(notesValue)}</textarea>
-        <button class="btn-primary" id="save-mood-btn">${t('save_checkin_btn')} <span>→</span></button>
-      </section>
-
-      <!-- Historical Trends & Behavioral Patterns -->
-      <section class="card trends-card">
-        <div class="trends-header-row">
-          <div>
-            <p class="eyebrow">${t('trends_eyebrow')}</p>
-            <h2>${t('trends_title')}</h2>
-          </div>
-          <div class="timeframe-switcher" role="tablist" aria-label="${t('timeframe_label')}">
-            <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'daily' ? 'active' : ''}" data-timeframe="daily">
-              ${t('view_daily')}
-            </button>
-            <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'weekly' ? 'active' : ''}" data-timeframe="weekly">
-              ${t('view_weekly')}
-            </button>
-            <button type="button" class="timeframe-btn ${appState.selectedTimeframe === 'monthly' ? 'active' : ''}" data-timeframe="monthly">
-              ${t('view_monthly')}
-            </button>
-          </div>
-        </div>
-
-        <!-- Period Summary Metrics Banner -->
-        <div class="timeframe-summary-banner">
-          <div class="timeframe-stat-item">
-            <span class="timeframe-stat-val">${formatNumber(timeframeSummary.adherence.percentage, appState.language)}%</span>
-            <span class="timeframe-stat-label">${t('stat_adherence')}</span>
-          </div>
-          <div class="timeframe-stat-item">
-            <span class="timeframe-stat-val">${formatNumber(timeframeSummary.hydration.dailyAvgMl, appState.language)} ${t('ml_unit')}</span>
-            <span class="timeframe-stat-label">${t('stat_water')} (Avg)</span>
-          </div>
-          <div class="timeframe-stat-item">
-            <span class="timeframe-stat-val">${timeframeSummary.sleep.avgDuration !== null ? formatNumber(timeframeSummary.sleep.avgDuration, appState.language) + t('hours_unit') : '--'}</span>
-            <span class="timeframe-stat-label">${t('stat_sleep')}</span>
-          </div>
-          <div class="timeframe-stat-item">
-            <span class="timeframe-stat-val">${timeframeSummary.vitals.avgSystolic && timeframeSummary.vitals.avgDiastolic ? `${formatNumber(timeframeSummary.vitals.avgSystolic, appState.language)}/${formatNumber(timeframeSummary.vitals.avgDiastolic, appState.language)}` : '--'}</span>
-            <span class="timeframe-stat-label">${appState.language === 'bn' ? 'গড় রক্তচাপ' : 'Avg BP'}</span>
-          </div>
-        </div>
-
-        <div class="trend-chart-container">
-          <div class="trend-chart-header">
-            <span>${t('chart_hydration_title')} (${appState.selectedTimeframe === 'daily' ? t('view_daily') : appState.selectedTimeframe === 'monthly' ? t('view_monthly') : t('view_weekly')})</span>
-            <span class="trend-legend"><span class="legend-item"><span class="legend-color" style="background:#0D9488"></span> ${t('chart_goal_met')}</span></span>
-          </div>
-          ${renderHydrationChartSVG(data.hydrationLogs, hydrationGoal, timeframeDays)}
-        </div>
-
-        <div class="trend-chart-container">
-          <div class="trend-chart-header">
-            <span>${t('chart_med_sleep_title')} (${appState.selectedTimeframe === 'daily' ? t('view_daily') : appState.selectedTimeframe === 'monthly' ? t('view_monthly') : t('view_weekly')})</span>
-            <div class="trend-legend">
-              <span class="legend-item"><span class="legend-color" style="background:#8B5CF6"></span> ${t('chart_legend_med')}</span>
-              <span class="legend-item"><span class="legend-color" style="background:#3B82F6"></span> ${t('chart_legend_sleep')}</span>
-            </div>
-          </div>
-          ${renderMoodSleepChartSVG(data.moodEntries, data.sleepLogs, timeframeDays)}
-        </div>
-
-        <div class="correlation-box">
-          ${correlationInsight}
-        </div>
-
-        <div class="timeframe-footer-actions">
-          <button type="button" class="timeframe-report-btn" id="open-report-from-trends-btn">
-            📄 ${t('download_pdf_report')}
-          </button>
-        </div>
-      </section>
-
-      <!-- Latest Vitals Display -->
-      ${latestVitals ? `
-      <section class="card vitals-display">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('vitals_eyebrow')}</p><h2>${t('vitals_title')}</h2></div>
-          <span class="section-icon">❤️</span>
-        </div>
-        <div class="vitals-grid">
-          ${latestVitals.heartRate ? `<div class="vital-item"><span class="vital-label">${t('heart_rate_label')}</span><span class="vital-value">${formatNumber(latestVitals.heartRate)} bpm</span></div>` : ''}
-          ${latestVitals.bloodPressure ? `<div class="vital-item"><span class="vital-label">${t('blood_pressure_label')}</span><span class="vital-value">${formatNumber(latestVitals.bloodPressure.systolic)}/${formatNumber(latestVitals.bloodPressure.diastolic)} mmHg</span></div>` : ''}
-          ${latestVitals.weight ? `<div class="vital-item"><span class="vital-label">${t('weight_modal_label')}</span><span class="vital-value">${formatNumber(latestVitals.weight)} kg</span></div>` : ''}
-          ${latestVitals.temperature ? `<div class="vital-item"><span class="vital-label">${t('temperature_label')}</span><span class="vital-value">${formatNumber(latestVitals.temperature)}°C</span></div>` : ''}
-        </div>
-      </section>
-      ` : ''}
-
-      <!-- Latest Sleep Display -->
-      ${latestSleep ? `
-      <section class="card sleep-display">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('sleep_eyebrow')}</p><h2>${t('sleep_title')}</h2></div>
-          <span class="section-icon">🌙</span>
-        </div>
-        <div class="sleep-summary">
-          <div class="sleep-stat"><span class="sleep-value">${formatNumber(latestSleep.duration)}${t('hours_unit')}</span><span class="sleep-label">${t('duration_label')}</span></div>
-          <div class="sleep-stat"><span class="sleep-value">${'⭐'.repeat(latestSleep.quality)}${'☆'.repeat(5 - latestSleep.quality)}</span><span class="sleep-label">${t('quality_label')}</span></div>
-          <div class="sleep-stat"><span class="sleep-value">${formatTime(latestSleep.bedtime)} - ${formatTime(latestSleep.wakeTime)}</span><span class="sleep-label">${t('schedule_label')}</span></div>
-        </div>
-      </section>
-      ` : ''}
-
-      <section class="insight-row">
-        <div class="card insight-card">
-          <p class="eyebrow">${t('recent_note_eyebrow')}</p>
-          <h3>${latestMood ? `${escapeHtml(latestMood.notes) || t('checked_in_today')}` : t('journal_ready')}</h3>
-          <p class="muted-copy">${latestMood ? `${latestMood.symptoms.length ? latestMood.symptoms.map(escapeHtml).join(' · ') : t('no_symptoms_logged')} · ${t('mood_label', { val: formatNumber(latestMood.mood) })}` : t('consistency_starts')}</p>
-        </div>
-        <div class="card insight-card accent-insight">
-          <p class="eyebrow">${t('todays_focus_eyebrow')}</p>
-          <h3>${medProgress.total === 0 ? t('build_routine') : adherenceRate === 100 ? t('all_meds_taken') : t('meds_remaining', { count: formatNumber(medProgress.total - medProgress.taken), plural: (medProgress.total - medProgress.taken === 1 ? '' : 's') })}</h3>
-          <p class="muted-copy">${streakDays > 1 ? t('streak_progress', { count: formatNumber(streakDays) }) : t('consistency_starts')}</p>
-        </div>
-      </section>
-
-      <!-- Medicine Section (Collapsible Accordion with Doses per day) -->
-      <section class="card add-med-card ${appState.isAddMedOpen ? 'expanded' : 'collapsed'}">
-        <div class="section-heading accordion-header" id="add-med-accordion-header" role="button" tabindex="0" aria-expanded="${appState.isAddMedOpen}">
-          <div>
-            <p class="eyebrow">${t('routine_eyebrow')}</p>
-            <h2>${t('routine_title')}</h2>
-            ${!appState.isAddMedOpen ? `<div class="accordion-collapsed-hint"><span>＋</span> ${t('expand_form_btn')}</div>` : ''}
-          </div>
-          <button type="button" class="accordion-toggle-btn" id="toggle-add-med-btn" aria-label="${appState.isAddMedOpen ? t('collapse_form_btn') : t('expand_form_btn')}">
-            <span class="accordion-icon">${appState.isAddMedOpen ? '✕' : '＋'}</span>
-          </button>
-        </div>
-        <div class="accordion-body ${appState.isAddMedOpen ? 'open' : ''}">
-          <form id="add-med-form">
-            <input type="text" id="med-name" placeholder="${t('med_name_ph')}" required />
-            <input type="text" id="med-dosage" placeholder="${t('med_dosage_ph')}" required />
-            
-            <div class="form-row">
-              <label class="form-label">${t('doses_per_day_label')}
-                <select id="med-doses-per-day">
-                  <option value="1">${t('dose_1_time')}</option>
-                  <option value="2">${t('dose_2_times')}</option>
-                  <option value="3">${t('dose_3_times')}</option>
-                  <option value="4">${t('dose_4_times')}</option>
-                </select>
-              </label>
-              <label class="form-label">${t('frequency_label')}
-                <select id="med-frequency">
-                  <option value="daily">${t('freq_daily')}</option>
-                  <option value="weekdays">${t('freq_weekdays')}</option>
-                  <option value="weekends">${t('freq_weekends')}</option>
-                </select>
-              </label>
-            </div>
-
-            <div id="dose-times-container">
-              <!-- Dynamic dose time pickers rendered here -->
-            </div>
-
-            <div class="form-row">
-              <label class="form-label">${t('initial_supply_label')}
-                <input type="number" id="med-inventory" placeholder="${t('pills_left_ph')}" min="0" value="30" />
-              </label>
-            </div>
-            <button type="submit" class="btn-primary">${t('add_medicine_btn')}</button>
-          </form>
-        </div>
-      </section>
-
-      <!-- Medicine Schedule Card with Empty State Routing -->
-      <section class="card list-card" id="medicine-schedule-section">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('schedule_eyebrow')}</p><h2>${t('schedule_title')}</h2></div>
-          <span class="progress-pill">${t('taken_badge', { taken: formatNumber(medProgress.taken), total: formatNumber(medProgress.total) })}</span>
-        </div>
-
-        ${lowInventoryMeds.length > 0 ? `
-          <div class="refill-alert-banner">
-            <span>${t('refill_alert_banner', { count: formatNumber(lowInventoryMeds.length), plural: lowInventoryMeds.length > 1 ? 's have' : ' has' })}</span>
-          </div>
-        ` : ''}
-
-        <div id="medicine-list">
-          ${todaysMedList.length === 0 ? `
-            <div class="empty-state-box">
-              <div class="empty-state-icon">💊</div>
-              <h3 class="empty-state-title">${t('empty_meds_title')}</h3>
-              <p class="empty-state-desc">${t('empty_meds_desc')}</p>
-              <button class="empty-state-btn" id="empty-add-med-btn">${t('empty_meds_btn')}</button>
-            </div>
-          ` : medicineListHTML}
-        </div>
-      </section>
-
-      <!-- Appointments List Section -->
-      <section class="card appointments-card">
-        <div class="section-heading">
-          <div><p class="eyebrow">${t('appts_eyebrow')}</p><h2>${t('appts_title')}</h2></div>
-          <span class="progress-pill">${t('appts_scheduled', { count: formatNumber(upcomingAppts.length) })}</span>
-        </div>
-        <div id="appointments-list">
-          ${upcomingAppts.length === 0 ? `<p class="empty-state">${t('no_appts')}</p>` : appointmentListHTML}
-        </div>
-      </section>
+      <!-- Active Tab View Content -->
+      ${tabContentHTML}
 
       <!-- App Footer -->
-      <footer class="app-footer">
+      <footer class="app-footer" style="margin-top: 24px;">
         <p class="copyright-text">${appState.language === 'bn' ? 'তৈরি করেছেন' : 'Created by'} <a href="https://www.instagram.com/zhsaikot" target="_blank" rel="noopener noreferrer" class="creator-link">MD. Ziaul Hasan</a></p>
       </footer>
 
-      <!-- Sticky Bottom Quick Navigation Bar -->
+      <!-- Sticky Bottom Quick Navigation Bar (4-Tab Switcher) -->
       <nav class="bottom-nav-bar" aria-label="Quick Navigation">
-        <button class="bottom-nav-item" id="nav-meds-btn" data-target="#medicine-schedule-section" title="${t('nav_medicines')}">
-          <span class="bottom-nav-icon">💊</span>
-          <span class="bottom-nav-label">${t('nav_medicines')}</span>
+        <button class="bottom-nav-item ${appState.activeTab === 'today' ? 'active' : ''}" data-tab="today" title="${t('tab_today')}">
+          <span class="bottom-nav-icon">🏠</span>
+          <span class="bottom-nav-label">${t('tab_today')}</span>
         </button>
-        <button class="bottom-nav-item" id="nav-water-btn" data-target=".water-card" title="${t('nav_hydration')}">
-          <span class="bottom-nav-icon">💧</span>
-          <span class="bottom-nav-label">${t('nav_hydration')}</span>
-        </button>
-        <button class="bottom-nav-item" id="nav-vitals-btn" data-target=".quick-actions" title="${t('nav_vitals')}">
+        <button class="bottom-nav-item ${appState.activeTab === 'health' ? 'active' : ''}" data-tab="health" title="${t('tab_health')}">
           <span class="bottom-nav-icon">❤️</span>
-          <span class="bottom-nav-label">${t('nav_vitals')}</span>
+          <span class="bottom-nav-label">${t('tab_health')}</span>
         </button>
-        <button class="bottom-nav-item" id="nav-profile-btn" title="${t('nav_profile')}">
+        <button class="bottom-nav-item ${appState.activeTab === 'trends' ? 'active' : ''}" data-tab="trends" title="${t('tab_trends')}">
+          <span class="bottom-nav-icon">📊</span>
+          <span class="bottom-nav-label">${t('tab_trends')}</span>
+        </button>
+        <button class="bottom-nav-item ${appState.activeTab === 'profile' ? 'active' : ''}" data-tab="profile" title="${t('tab_profile')}">
           <span class="bottom-nav-icon">
             ${profile.avatarUrl ? `
               <img src="${profile.avatarUrl}" class="nav-avatar-img" alt="Profile" />
@@ -775,7 +917,7 @@ function renderApp() {
               </svg>
             `}
           </span>
-          <span class="bottom-nav-label">${t('nav_profile')}</span>
+          <span class="bottom-nav-label">${t('tab_profile')}</span>
         </button>
       </nav>
     </div>
@@ -1141,19 +1283,33 @@ function attachEventListeners() {
     openReportModal();
   });
 
-  // Bottom Quick Navigation
-  document.querySelectorAll('.bottom-nav-item[data-target]').forEach(btn => {
+  // Bottom Tab Navigation (Instant, zero-jitter switching)
+  document.querySelectorAll<HTMLButtonElement>('.bottom-nav-item[data-tab]').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const targetSelector = (e.currentTarget as HTMLElement).dataset.target;
-      if (targetSelector) {
-        const targetEl = document.querySelector(targetSelector);
-        targetEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const tab = (e.currentTarget as HTMLElement).dataset.tab as TabKey;
+      if (tab && tab !== appState.activeTab) {
+        appState.activeTab = tab;
+        renderApp();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     });
   });
 
-  document.getElementById('nav-profile-btn')?.addEventListener('click', () => {
-    openProfileModal();
+  // Top Header Avatar button (switches to Profile tab)
+  document.getElementById('header-avatar-btn')?.addEventListener('click', () => {
+    appState.activeTab = 'profile';
+    renderApp();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // Quick Action Buttons in Health View
+  document.getElementById('vitals-quick-add-btn')?.addEventListener('click', () => {
+    (document.getElementById('vitals-form') as HTMLFormElement)?.reset();
+    vitalsModal?.showModal();
+  });
+
+  document.getElementById('sleep-quick-add-btn')?.addEventListener('click', () => {
+    sleepModal?.showModal();
   });
 
   // Empty State Routing Button
@@ -1495,14 +1651,16 @@ function attachEventListeners() {
     profileModal?.showModal();
   }
 
-  // Profile Modal: Preferences & Settings Controls
+  // Profile: Preferences & Settings Controls
   document.getElementById('modal-toggle-lang-btn')?.addEventListener('click', () => {
     appState.language = appState.language === 'en' ? 'bn' : 'en';
     setAppLanguage(appState.language);
     setLanguage(appState.language);
     saveAppState();
     renderApp();
-    openProfileModal();
+    if (profileModal?.open) {
+      openProfileModal();
+    }
   });
 
   document.getElementById('modal-toggle-notifications-btn')?.addEventListener('click', async () => {
@@ -1517,7 +1675,7 @@ function attachEventListeners() {
           appState.language === 'bn' ? 'মেডিট্র্যাক যথাসময়ে আপনার ওষুধ ও পানি পানের কথা মনে করিয়ে দেবে।' : 'MediTrack will remind you when it is time for your medication.'
         );
         renderApp();
-        openProfileModal();
+        if (profileModal?.open) openProfileModal();
       } else {
         alert(appState.language === 'bn' 
           ? 'নোটিফিকেশন অনুমতি পাওয়া যায়নি। আপনার ব্রাউজার সেটিংস থেকে চালু করতে পারেন।' 
@@ -1528,7 +1686,7 @@ function attachEventListeners() {
       saveAppState();
       syncReminderScheduler();
       renderApp();
-      openProfileModal();
+      if (profileModal?.open) openProfileModal();
     }
   });
 
@@ -1552,10 +1710,16 @@ function attachEventListeners() {
     document.documentElement.classList.toggle('dark-mode', appState.isDarkMode);
     saveAppState();
     renderApp();
-    openProfileModal();
+    if (profileModal?.open) {
+      openProfileModal();
+    }
   });
 
-  document.getElementById('bmi-update-metrics-btn')?.addEventListener('click', openProfileModal);
+  document.getElementById('bmi-update-metrics-btn')?.addEventListener('click', () => {
+    appState.activeTab = 'profile';
+    renderApp();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 
   document.getElementById('close-profile-btn')?.addEventListener('click', () => {
     profileModal?.close();
@@ -1576,9 +1740,10 @@ function attachEventListeners() {
     reader.onload = (event) => {
       stagedAvatarUrl = event.target?.result as string;
       const preview = document.getElementById('profile-avatar-preview');
-      if (preview) {
-        preview.innerHTML = `<img src="${stagedAvatarUrl}" alt="Profile avatar" />`;
-      }
+      const tabPreview = document.getElementById('profile-tab-avatar-preview');
+      const imgHtml = `<img src="${stagedAvatarUrl}" alt="Profile avatar" />`;
+      if (preview) preview.innerHTML = imgHtml;
+      if (tabPreview) tabPreview.innerHTML = imgHtml;
       const removeBtn = document.getElementById('remove-avatar-btn');
       if (removeBtn) removeBtn.style.display = 'inline-block';
     };
@@ -1588,9 +1753,10 @@ function attachEventListeners() {
   document.getElementById('remove-avatar-btn')?.addEventListener('click', () => {
     stagedAvatarUrl = '';
     const preview = document.getElementById('profile-avatar-preview');
-    if (preview) {
-      preview.innerHTML = `<span class="avatar-preview-fallback">👤</span>`;
-    }
+    const tabPreview = document.getElementById('profile-tab-avatar-preview');
+    const fallbackHtml = `<span class="avatar-preview-fallback">👤</span>`;
+    if (preview) preview.innerHTML = fallbackHtml;
+    if (tabPreview) tabPreview.innerHTML = fallbackHtml;
     const removeBtn = document.getElementById('remove-avatar-btn');
     if (removeBtn) removeBtn.style.display = 'none';
   });
