@@ -1217,8 +1217,8 @@ function renderApp() {
         <div class="header-brand-group">
           <div class="brand-mark">✚</div>
           <div class="brand-text">
-            <h1 style="margin:0; font-size:1.42rem; letter-spacing:-0.03em; color:var(--text-main); font-weight:800; line-height:1.1;">${t('brand_name')}</h1>
-            <p class="subtitle" style="margin:0; font-size:0.75rem; color:var(--text-muted); line-height:1.2;">${t('brand_subtitle')}</p>
+            <h1 class="brand-title">${t('brand_name')}</h1>
+            <p class="brand-subtext">${t('brand_subtitle')}</p>
           </div>
         </div>
 

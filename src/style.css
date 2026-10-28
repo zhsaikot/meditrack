@@ -5141,12 +5141,41 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   padding: 4px 2px;
   grid-column: 1 / -1;
   width: 100%;
+  text-align: left;
 }
 
 .header-brand-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  text-align: left;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+  line-height: 1.15;
+}
+
+.brand-title {
+  margin: 0;
+  font-size: 1.42rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
+  line-height: 1.15;
+  text-align: left;
+}
+
+.brand-subtext {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.25;
+  text-align: left;
 }
 
 .header-quick-actions {
