@@ -740,8 +740,8 @@ function renderApp() {
               </div>
             </div>
 
-            <!-- Right Column: Stacked Bento Cards (Sleep & Vitals) -->
-            <div class="bento-stacked-col">
+            <!-- Bento Row: Side-by-Side Cards (Sleep & Vitals) -->
+            <div class="bento-stacked-col bento-duo-row">
               <!-- Bento Card 2: Sleep Tracker -->
               <div class="bento-card bento-card-sleep" id="bento-sleep-card">
                 <div class="bento-card-header">
