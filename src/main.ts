@@ -700,9 +700,14 @@ function renderApp() {
                 <span class="spotlight-time">🕐 ${formatTime(nextMedicine.time)} ${nextMedicine.totalDoses > 1 ? `· ${t('dose_tag', { index: formatNumber(nextMedicine.doseIndex + 1), total: formatNumber(nextMedicine.totalDoses) })}` : ''}</span>
               </div>
             </div>
-            <button class="spotlight-take-btn take-btn" data-id="${nextMedicine.medicine.id}" data-dose-index="${nextMedicine.doseIndex}">
-              ✓ ${t('take_btn_title')}
-            </button>
+            <div class="spotlight-actions">
+              <button class="spotlight-action-btn take-btn" data-id="${nextMedicine.medicine.id}" data-dose-index="${nextMedicine.doseIndex}" title="${t('take_btn_title')}" aria-label="${t('take_btn_title')}">
+                ✓
+              </button>
+              <button class="spotlight-action-btn skip-btn" data-id="${nextMedicine.medicine.id}" data-dose-index="${nextMedicine.doseIndex}" title="${t('skip_btn_title')}" aria-label="${t('skip_btn_title')}">
+                ⊘
+              </button>
+            </div>
           </div>
         ` : ''}
 
