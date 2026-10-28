@@ -1342,9 +1342,11 @@ function renderApp() {
           </div>
         </div>
 
-        <div class="greeting-date-pill">
-          <span class="status-dot"></span>
-          <span>${todayLabel}</span>
+        <div class="greeting-date-row">
+          <div class="greeting-date-pill" title="${todayLabel}">
+            <span class="status-dot"></span>
+            <span>${todayLabel}</span>
+          </div>
         </div>
       </div>
 
