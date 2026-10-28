@@ -87,7 +87,9 @@ let appState = {
   language: getAppLanguage() as Language,
   selectedTimeframe: 'weekly' as 'daily' | 'weekly' | 'monthly',
   isAddMedOpen: false,
-  activeTab: 'today' as TabKey
+  activeTab: 'today' as TabKey,
+  recentlyCompletedApptId: null as string | null,
+  dismissedUpcomingApptId: null as string | null
 };
 
 // Default dose time presets based on doses per day
@@ -633,29 +635,28 @@ function renderApp() {
               </div>
             </div>
           </div>
-        ` : (todayCompletedAppt ? `
-          <!-- Today's Consultation Completed Banner -->
-          <div class="today-appointment-completed-banner">
+        ` : (appState.recentlyCompletedApptId && todayCompletedAppt?.id === appState.recentlyCompletedApptId ? `
+          <!-- Today's Consultation Completed Banner (Auto-dismisses after 4s) -->
+          <div class="today-appointment-completed-banner" id="temporary-completed-banner">
             <div class="completed-banner-icon">✅</div>
             <div class="completed-banner-info">
               <strong>${t('today_appt_done_banner')}</strong>
-              <span>${escapeHtml(todayCompletedAppt.title)} (${escapeHtml(todayCompletedAppt.doctor)}) ${todayCompletedAppt.attachments?.length ? `· 📎 ${formatNumber(todayCompletedAppt.attachments.length)} ${t('prescriptions_and_reports')}` : ''}</span>
+              <span>${escapeHtml(todayCompletedAppt.title)} (${escapeHtml(todayCompletedAppt.doctor)})</span>
             </div>
-            <div class="completed-banner-actions">
-              <button class="btn-completed-view" id="view-completed-today-btn" data-id="${todayCompletedAppt.id}">
-                ${t('view_records_btn')} →
-              </button>
-            </div>
+            <button class="banner-close-btn" id="close-completed-banner-btn" aria-label="Close">✕</button>
           </div>
-        ` : (upcomingSoonAppt ? `
+        ` : (upcomingSoonAppt && appState.dismissedUpcomingApptId !== upcomingSoonAppt.id ? `
           <!-- Upcoming Consultation Mini-Alert (Next 3 days) -->
           <div class="upcoming-visit-mini-banner">
             <div class="mini-banner-info">
               <span>🗓️ <strong>${t('upcoming_visit_label')}:</strong> ${escapeHtml(upcomingSoonAppt.title)} (${formatAppointmentDisplay(upcomingSoonAppt).dateDisplay} at ${formatTime(upcomingSoonAppt.time)}) · ${escapeHtml(upcomingSoonAppt.doctor)}</span>
             </div>
-            <button class="btn-mini-banner-view" id="view-next-appt-btn" data-id="${upcomingSoonAppt.id}">
-              ${t('view_btn')} →
-            </button>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button class="btn-mini-banner-view" id="view-next-appt-btn" data-id="${upcomingSoonAppt.id}">
+                ${t('view_btn')} →
+              </button>
+              <button class="banner-close-btn" id="dismiss-upcoming-banner-btn" data-id="${upcomingSoonAppt.id}" title="Dismiss">✕</button>
+            </div>
           </div>
         ` : ''))}
 
@@ -2043,10 +2044,30 @@ function attachEventListeners() {
       const id = btn.getAttribute('data-id');
       if (id) {
         completeAppointment(id, true);
+        appState.recentlyCompletedApptId = id;
         showQuickToast(t('appt_completed_toast'), '🎉');
         renderApp();
+        setTimeout(() => {
+          if (appState.recentlyCompletedApptId === id) {
+            appState.recentlyCompletedApptId = null;
+            renderApp();
+          }
+        }, 4000);
       }
     });
+  });
+
+  document.getElementById('close-completed-banner-btn')?.addEventListener('click', () => {
+    appState.recentlyCompletedApptId = null;
+    renderApp();
+  });
+
+  document.getElementById('dismiss-upcoming-banner-btn')?.addEventListener('click', (e) => {
+    const id = (e.currentTarget as HTMLElement).getAttribute('data-id');
+    if (id) {
+      appState.dismissedUpcomingApptId = id;
+      renderApp();
+    }
   });
 
   // Appointment Undo Done (restore to upcoming)

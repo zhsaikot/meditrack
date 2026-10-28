@@ -4641,6 +4641,26 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   color: #FFFFFF;
 }
 
+.banner-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.05rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: all 0.2s ease;
+  display: grid;
+  place-items: center;
+  font-family: inherit;
+}
+
+.banner-close-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-main);
+}
+
 /* Appointment Item Due & Completion Prompt Styles */
 .appointment-item.item-due {
   border-color: rgba(245, 158, 11, 0.5);
