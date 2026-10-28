@@ -4473,9 +4473,9 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 .appt-spotlight-actions {
   flex-shrink: 0;
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .btn-spotlight-view {
@@ -4490,6 +4490,10 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   white-space: nowrap;
   box-shadow: 0 3px 10px rgba(13, 148, 136, 0.25);
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .btn-spotlight-view:hover {
@@ -4499,7 +4503,7 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 }
 
 .btn-spotlight-done {
-  padding: 10px 16px;
+  padding: 10px 18px;
   background: linear-gradient(135deg, #059669 0%, #10B981 100%);
   color: #FFFFFF;
   border: none;
@@ -4512,6 +4516,7 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
 }
 
@@ -4879,14 +4884,25 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   .appt-spotlight-content {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: 14px;
   }
   .appt-spotlight-icon {
     display: none;
   }
-  .btn-spotlight-view {
+  .appt-spotlight-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
     width: 100%;
+  }
+  .btn-spotlight-done,
+  .btn-spotlight-view {
+    flex: 1;
+    width: auto;
     text-align: center;
+    justify-content: center;
+    padding: 10px 14px;
   }
   .upcoming-visit-mini-banner {
     flex-direction: column;

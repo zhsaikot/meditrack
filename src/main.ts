@@ -627,7 +627,7 @@ function renderApp() {
                   ${t('btn_mark_appt_done')}
                 </button>
                 <button class="btn-spotlight-view" id="view-today-appt-btn" data-id="${todayAppt.id}">
-                  ${t('view_details_btn')} →
+                  ${t('view_btn')}
                 </button>
               </div>
             </div>
