@@ -1031,12 +1031,18 @@ function renderApp() {
             <p class="subtitle">${t('brand_subtitle')}</p>
           </div>
         </div>
-        <div class="header-avatar-pill" id="header-avatar-btn" role="button" tabindex="0" title="${t('tab_profile')}">
-          ${profile.avatarUrl ? `
-            <img src="${profile.avatarUrl}" class="nav-avatar-img" alt="Profile" />
-          ` : `
-            <div class="avatar-fallback-mini">${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</div>
-          `}
+        <div class="header-user-badge" id="header-avatar-btn" role="button" tabindex="0" title="${t('tab_profile')}">
+          <div class="header-user-avatar">
+            ${profile.avatarUrl ? `
+              <img src="${profile.avatarUrl}" class="header-avatar-img" alt="Profile" />
+            ` : `
+              <div class="header-avatar-fallback">${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</div>
+            `}
+          </div>
+          <div class="header-user-details">
+            <span class="header-user-greeting">${appState.language === 'bn' ? 'স্বাগতম' : 'Hello'},</span>
+            <strong class="header-user-name">${escapeHtml(profile.name?.trim() || (appState.language === 'bn' ? 'ব্যবহারকারী' : 'Patient'))}</strong>
+          </div>
         </div>
       </header>
 
