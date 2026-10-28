@@ -541,6 +541,18 @@ html[lang="bn"] button {
 .subtitle { margin: 6px 0 0; font-size: .86rem; }
 .eyebrow { margin: 0 0 5px; color: currentColor; font-size: .64rem; font-weight: 800; letter-spacing: .14em; opacity: .7; }
 
+/* User Profile Badge & Date Bar (Side-by-side) */
+.user-date-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 2px 0 16px;
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
 /* Header User Profile Badge */
 .header-user-badge {
   display: inline-flex;
@@ -554,7 +566,7 @@ html[lang="bn"] button {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
   user-select: none;
-  margin-top: 4px;
+  margin: 0;
 }
 
 .header-user-badge:hover {
@@ -715,7 +727,21 @@ label.icon-btn:hover {
   background: #312E81;
   color: #C7D2FE;
 }
-.date-strip { display: flex; align-items: center; gap: 8px; margin: 0 4px 16px; color: var(--text-muted); font-size: .75rem; font-weight: 700; }
+.date-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 99px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  margin: 0;
+  white-space: nowrap;
+}
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #56a779; box-shadow: 0 0 0 4px rgba(86, 167, 121, .15); }
 .date-strip-note { margin-left: auto; font-weight: 500; font-style: italic; }
 .welcome-panel { display: flex; justify-content: space-between; align-items: center; min-height: 110px; margin-bottom: 16px; padding: 20px 24px; overflow: hidden; border-radius: 16px; background: var(--color-ink); color: #f5f3eb; position: relative; }
@@ -819,6 +845,7 @@ label.icon-btn:hover {
 @media (min-width: 680px) {
   .container { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; }
   .main-header, 
+  .user-date-bar,
   .date-strip, 
   .welcome-panel, 
   .stats-card, 
@@ -873,7 +900,11 @@ label.icon-btn:hover {
 .dark-mode .main-header h1 { color: #F1F5F9; }
 .dark-mode .brand-mark { background: #134E4A; color: #2DD4BF; box-shadow: 4px 4px 0 #0D9488; }
 .dark-mode .subtitle { color: #94A3B8; }
-.dark-mode .date-strip { color: #CBD5E1; }
+.dark-mode .date-strip {
+  background: #0F172A;
+  border-color: #334155;
+  color: #CBD5E1;
+}
 .dark-mode .date-strip-note { color: #94A3B8; }
 .dark-mode .header-actions .icon-btn { background: #1E293B; border-color: #334155; color: #F1F5F9; }
 .dark-mode .header-actions .icon-btn:hover { background: #334155; border-color: #2DD4BF; color: #2DD4BF; }

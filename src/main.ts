@@ -1031,6 +1031,10 @@ function renderApp() {
             <p class="subtitle">${t('brand_subtitle')}</p>
           </div>
         </div>
+      </header>
+
+      <!-- User Greeting & Date Bar (Side by Side / পাশাপাশি) -->
+      <div class="user-date-bar">
         <div class="header-user-badge" id="header-avatar-btn" role="button" tabindex="0" title="${t('tab_profile')}">
           <div class="header-user-avatar">
             ${profile.avatarUrl ? `
@@ -1044,12 +1048,12 @@ function renderApp() {
             <strong class="header-user-name">${escapeHtml(profile.name?.trim() || (appState.language === 'bn' ? 'ব্যবহারকারী' : 'Patient'))}</strong>
           </div>
         </div>
-      </header>
 
-      <div class="date-strip">
-        <span class="status-dot"></span>
-        <span>${todayLabel}</span>
-        <span class="date-strip-note">${healthInsight}</span>
+        <div class="date-strip">
+          <span class="status-dot"></span>
+          <span>${todayLabel}</span>
+          ${healthInsight ? `<span class="date-strip-note">${healthInsight}</span>` : ''}
+        </div>
       </div>
 
       <!-- Active Tab View Content -->
