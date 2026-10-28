@@ -822,7 +822,7 @@ html[lang="bn"] button {
   font-family: "Noto Sans Bengali", system-ui, -apple-system, sans-serif;
 }
 
-.container { max-width: 850px; padding: 24px 20px 100px; }
+.container { max-width: 850px; padding: 24px 20px 84px; }
 .main-header { margin-bottom: 14px; padding: 0 4px 6px; background: transparent; box-shadow: none; }
 .brand-lockup { display: flex; align-items: center; gap: 12px; text-align: left; }
 .brand-mark { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 13px; background: var(--color-ink); color: #f7d98e; box-shadow: 4px 4px 0 var(--color-coral); flex-shrink: 0; }
@@ -3968,7 +3968,7 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 
 @media (max-width: 768px) {
   .container {
-    padding-bottom: 110px !important;
+    padding-bottom: 78px !important;
   }
 }
 
@@ -4783,9 +4783,13 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 .tab-content {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   animation: tabFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  min-height: calc(100vh - 220px);
+}
+
+.tab-content > *,
+.tab-content > .card {
+  margin-bottom: 0 !important;
 }
 
 @keyframes tabFadeIn {
@@ -6829,7 +6833,7 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
    ========================================================================== */
 .floating-dock-wrapper {
   position: fixed;
-  bottom: 22px;
+  bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -6845,10 +6849,10 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   background: rgba(15, 23, 42, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
-  padding: 6px 8px;
+  padding: 6px 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   box-shadow: 
     0 20px 42px -6px rgba(0, 0, 0, 0.45),
     0 8px 18px -2px rgba(0, 0, 0, 0.25),
@@ -6857,13 +6861,13 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  height: 56px;
+  height: 58px;
   box-sizing: border-box;
 }
 
 .dock-nav-item {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -6958,8 +6962,8 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 /* Floating Action Button (FAB) */
 .floating-fab-btn {
   pointer-events: auto;
-  width: 54px;
-  height: 54px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: linear-gradient(135deg, #0D9488 0%, #10B981 100%);
   color: #FFFFFF;
@@ -7000,29 +7004,33 @@ input[type="time"]:focus, input[type="date"]:focus, input[type="text"]:focus, in
 
 @media (max-width: 480px) {
   .floating-dock-wrapper {
-    bottom: 16px;
+    bottom: 15px;
     gap: 10px;
   }
   .floating-bottom-dock {
-    height: 52px;
-    padding: 4px 6px;
-    gap: 6px;
+    height: 54px;
+    padding: 5px 10px;
+    gap: 10px;
   }
   .dock-nav-item {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
   }
   .dock-svg-icon {
-    width: 19px;
-    height: 19px;
+    width: 20px;
+    height: 20px;
+  }
+  .dock-avatar-ring {
+    width: 29px;
+    height: 29px;
   }
   .floating-fab-btn {
-    width: 50px;
-    height: 50px;
+    width: 52px;
+    height: 52px;
   }
   .fab-plus-svg {
-    width: 22px;
-    height: 22px;
+    width: 23px;
+    height: 23px;
   }
 }
 
