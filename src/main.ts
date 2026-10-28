@@ -535,6 +535,7 @@ function renderApp() {
     { id: 'Insomnia', label: t('symptom_insomnia') },
   ];
 
+  const moodStreak = calculateStreak(moodEntries);
   const todayMood = getTodayMood();
   const notesValue = todayMood ? todayMood.notes : '';
 
@@ -858,16 +859,27 @@ function renderApp() {
           </div>
         </section>
 
-        <!-- Mood & Symptom Journal -->
+        <!-- Mood & Symptom Journal (Harmonized Modern Card) -->
         <section class="card mood-card">
           <div class="section-heading">
-            <div><p class="eyebrow">${t('mental_eyebrow')}</p><h2>${t('mental_title')}</h2></div>
-            <span class="section-icon">☼</span>
+            <div class="section-heading-left">
+              <div class="section-icon-badge">🧠</div>
+              <div>
+                <p class="eyebrow">${t('mental_eyebrow')}</p>
+                <h2>${t('mental_title')}</h2>
+              </div>
+            </div>
+            <div class="mental-streak-pill" title="${moodStreak} ${appState.language === 'bn' ? 'দিনের ধারাবাহিকতা' : 'Day Streak'}">
+              <span class="streak-flame">🔥</span>
+              <span class="streak-count">${formatNumber(moodStreak)}</span>
+              <span class="streak-label">${appState.language === 'bn' ? 'দিন ধারাবাহিক' : 'Day Streak'}</span>
+            </div>
           </div>
+
           <p class="mood-prompt">${t('rate_mood_prompt')}</p>
           <div class="emoji-grid">
             ${moodEmojis.map(e => `
-              <button class="emoji-btn ${appState.currentMood === e.val ? 'selected' : ''}" data-mood="${e.val}">
+              <button type="button" class="emoji-btn mood-val-${e.val} ${appState.currentMood === e.val ? 'selected' : ''}" data-mood="${e.val}" title="${e.label}">
                 <span class="emoji-icon">${e.icon}</span>
                 <span class="emoji-label">${e.label}</span>
               </button>
@@ -879,15 +891,26 @@ function renderApp() {
             ${symptomsList.map(s => {
               const isSelected = appState.currentSymptoms.includes(s.id);
               return `
-                <button class="symptom-btn ${isSelected ? 'selected' : ''}" data-symptom="${s.id}">
+                <button type="button" class="symptom-btn ${isSelected ? 'selected' : ''}" data-symptom="${s.id}">
                   ${isSelected ? '✓ ' : ''}${s.label}
                 </button>
               `;
             }).join('')}
           </div>
 
-          <textarea id="mood-notes" placeholder="${t('journal_placeholder')}" rows="3">${escapeHtml(notesValue)}</textarea>
-          <button class="btn-primary" id="save-mood-btn">${t('save_checkin_btn')} <span>→</span></button>
+          <div class="mood-notes-wrapper">
+            <textarea id="mood-notes" class="mood-notes-textarea" placeholder="${t('journal_placeholder')}" rows="3">${escapeHtml(notesValue)}</textarea>
+          </div>
+
+          <div class="mood-action-row">
+            <button type="button" class="btn-primary btn-save-mood" id="save-mood-btn">
+              <span>${t('save_checkin_btn')}</span>
+              <svg class="btn-arrow-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+          </div>
         </section>
       </div>
     `;
@@ -1310,7 +1333,11 @@ function renderApp() {
       <!-- Modern Top Header: Brand Lockup + Quick Action Pills -->
       <header class="modern-app-header">
         <div class="header-brand-group">
-          <div class="brand-mark">✚</div>
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <path d="M19 10.5h-5.5V5a1.5 1.5 0 0 0-3 0v5.5H5a1.5 1.5 0 0 0 0 3h5.5V19a1.5 1.5 0 0 0 3 0v-5.5H19a1.5 1.5 0 0 0 0-3z"/>
+            </svg>
+          </div>
           <div class="brand-text">
             <h1 class="brand-title">${t('brand_name')}</h1>
           </div>
@@ -1330,26 +1357,123 @@ function renderApp() {
         </div>
       </header>
 
-      <!-- User Greeting & Date Card (Mockup Inspired: Wyatt Anderson style) -->
+      <!-- User Greeting & Date Card with AI Doctor Tiger Mascot -->
       <div class="user-greeting-card">
-        <div class="greeting-user-col">
-          <div class="greeting-avatar-circle" id="header-avatar-btn" role="button" tabindex="0" title="${t('tab_profile')}">
-            ${profile.avatarUrl ? `
-              <img src="${profile.avatarUrl}" class="greeting-avatar-img" alt="Profile" />
-            ` : `
-              <span>${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</span>
-            `}
+        <div class="greeting-left-col">
+          <div class="greeting-user-col">
+            <div class="greeting-avatar-circle" id="header-avatar-btn" role="button" tabindex="0" title="${t('tab_profile')}">
+              ${profile.avatarUrl ? `
+                <img src="${profile.avatarUrl}" class="greeting-avatar-img" alt="Profile" />
+              ` : `
+                <span>${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</span>
+              `}
+            </div>
+            <div class="greeting-texts">
+              <span class="greeting-eyebrow-text">${greetingEyebrowText}</span>
+              <strong class="greeting-full-name">${escapeHtml(profile.name?.trim() || (appState.language === 'bn' ? 'ব্যবহারকারী' : 'Patient'))}</strong>
+            </div>
           </div>
-          <div class="greeting-texts">
-            <span class="greeting-eyebrow-text">${greetingEyebrowText}</span>
-            <strong class="greeting-full-name">${escapeHtml(profile.name?.trim() || (appState.language === 'bn' ? 'ব্যবহারকারী' : 'Patient'))}</strong>
+
+          <div class="greeting-date-row">
+            <div class="greeting-date-pill" title="${todayLabel}">
+              <span class="status-dot"></span>
+              <span>${todayLabel}</span>
+            </div>
           </div>
         </div>
 
-        <div class="greeting-date-row">
-          <div class="greeting-date-pill" title="${todayLabel}">
-            <span class="status-dot"></span>
-            <span>${todayLabel}</span>
+        <!-- Animated AI Doctor Tiger Mascot Widget -->
+        <div class="ai-tiger-doctor-widget" id="open-ai-doctor-btn" role="button" tabindex="0" title="${appState.language === 'bn' ? 'ডাঃ টাইগার এআই এর সাথে পরামর্শ করুন' : 'Chat with Dr. Tiger AI Assistant'}">
+          <div class="ai-tiger-bubble">
+            <span class="ai-live-dot"></span>
+            <span class="ai-bubble-text">${appState.language === 'bn' ? 'ডাঃ টাইগার AI' : 'Dr. Tiger AI'}</span>
+          </div>
+          <div class="ai-tiger-avatar">
+            <svg class="tiger-svg" viewBox="0 0 100 105" width="76" height="80" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="tigerFur" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#FF9F43" />
+                  <stop offset="100%" stop-color="#EE5A24" />
+                </linearGradient>
+                <linearGradient id="doctorCoat" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#FFFFFF" />
+                  <stop offset="100%" stop-color="#F1F5F9" />
+                </linearGradient>
+              </defs>
+
+              <!-- Tail wagging in back -->
+              <path class="tiger-tail" d="M 22 85 C 10 82 5 70 12 62 C 16 58 20 65 18 72 C 17 77 22 80 25 82 Z" fill="#EE5A24" />
+
+              <!-- Left Ear -->
+              <path class="tiger-ear left" d="M 22 28 C 16 12 30 6 36 18 Z" fill="url(#tigerFur)" stroke="#D35400" stroke-width="1.5" />
+              <path d="M 24 25 C 20 15 28 11 33 19 Z" fill="#FFB8B8" />
+
+              <!-- Right Ear -->
+              <path class="tiger-ear right" d="M 78 28 C 84 12 70 6 64 18 Z" fill="url(#tigerFur)" stroke="#D35400" stroke-width="1.5" />
+              <path d="M 76 25 C 80 15 72 11 67 19 Z" fill="#FFB8B8" />
+
+              <!-- Head Base -->
+              <ellipse cx="50" cy="45" rx="34" ry="30" fill="url(#tigerFur)" stroke="#D35400" stroke-width="1.5" />
+
+              <!-- Tiger Stripes on Head -->
+              <path d="M 50 17 L 48 27 L 52 27 Z" fill="#2C1810" />
+              <path d="M 44 20 L 41 26 L 47 25 Z" fill="#2C1810" />
+              <path d="M 56 20 L 53 25 L 59 26 Z" fill="#2C1810" />
+              <path d="M 18 42 L 28 44 L 20 47 Z" fill="#2C1810" />
+              <path d="M 19 49 L 27 51 L 21 54 Z" fill="#2C1810" />
+              <path d="M 82 42 L 72 44 L 80 47 Z" fill="#2C1810" />
+              <path d="M 81 49 L 73 51 L 79 54 Z" fill="#2C1810" />
+
+              <!-- White Muzzle -->
+              <ellipse cx="50" cy="54" rx="18" ry="13" fill="#FFFDF5" />
+
+              <!-- Doctor Headband & Mirror / Cap -->
+              <rect x="36" y="14" width="28" height="6" rx="3" fill="#0D9488" />
+              <circle cx="50" cy="17" r="7" fill="#E2E8F0" stroke="#0D9488" stroke-width="1.5" />
+              <path d="M 48 14 h 4 v 6 h -4 Z M 46 16 h 8 v 2 h -8 Z" fill="#0D9488" />
+
+              <!-- Eyes (Blinking Group) -->
+              <g class="tiger-eyes">
+                <ellipse cx="37" cy="42" rx="4.5" ry="5.5" fill="#1E293B" />
+                <circle cx="35.5" cy="40" r="2" fill="#FFFFFF" />
+                <circle cx="38.5" cy="44" r="0.9" fill="#FFFFFF" />
+
+                <ellipse cx="63" cy="42" rx="4.5" ry="5.5" fill="#1E293B" />
+                <circle cx="61.5" cy="40" r="2" fill="#FFFFFF" />
+                <circle cx="64.5" cy="44" r="0.9" fill="#FFFFFF" />
+              </g>
+
+              <!-- Cute Pink Cheeks -->
+              <ellipse cx="28" cy="50" rx="5" ry="3" fill="#FF85A2" opacity="0.65" />
+              <ellipse cx="72" cy="50" rx="5" ry="3" fill="#FF85A2" opacity="0.65" />
+
+              <!-- Nose & Mouth -->
+              <polygon points="47,49 53,49 50,53" fill="#EE5253" />
+              <path d="M 50 53 Q 46 58 43 56 M 50 53 Q 54 58 57 56" stroke="#2C1810" stroke-width="1.5" fill="none" stroke-linecap="round" />
+
+              <!-- Doctor White Coat Body -->
+              <path d="M 28 72 L 32 100 L 68 100 L 72 72 Q 50 78 28 72 Z" fill="url(#doctorCoat)" stroke="#CBD5E1" stroke-width="1.5" />
+              <path d="M 40 73 L 50 86 L 36 82 Z" fill="#E2E8F0" />
+              <path d="M 60 73 L 50 86 L 64 82 Z" fill="#E2E8F0" />
+              <polygon points="44,73 56,73 50,83" fill="#0D9488" />
+
+              <!-- Stethoscope -->
+              <path d="M 36 74 C 36 86 44 92 48 92" stroke="#0284C7" stroke-width="2" fill="none" stroke-linecap="round" />
+              <path d="M 64 74 C 64 86 56 92 52 92" stroke="#0284C7" stroke-width="2" fill="none" stroke-linecap="round" />
+              <circle cx="50" cy="93" r="3.5" fill="#94A3B8" stroke="#0284C7" stroke-width="1.2" />
+
+              <!-- Left Paw -->
+              <ellipse cx="32" cy="85" rx="5" ry="6" fill="#FFFDF5" stroke="#D35400" stroke-width="1.2" />
+
+              <!-- Right Paw (Waving Animation) -->
+              <g class="tiger-waving-paw">
+                <ellipse cx="72" cy="78" rx="6" ry="6.5" fill="#FFFDF5" stroke="#D35400" stroke-width="1.2" />
+                <circle cx="72" cy="78" r="2.5" fill="#FFB8B8" />
+                <circle cx="69.5" cy="74.5" r="1.2" fill="#FFB8B8" />
+                <circle cx="72" cy="73.5" r="1.2" fill="#FFB8B8" />
+                <circle cx="74.5" cy="74.5" r="1.2" fill="#FFB8B8" />
+              </g>
+            </svg>
           </div>
         </div>
       </div>
@@ -1362,37 +1486,47 @@ function renderApp() {
         <p class="copyright-text">${appState.language === 'bn' ? 'তৈরি করেছেন' : 'Created by'} <a href="https://www.instagram.com/zhsaikot" target="_blank" rel="noopener noreferrer" class="creator-link">MD. Ziaul Hasan</a></p>
       </footer>
 
-      <!-- Floating Navigation Dock & Quick Add FAB (Mockup Inspired) -->
+      <!-- Floating Navigation Dock & Quick Add FAB (Mockup Inspired Ultra-Premium) -->
       <div class="floating-dock-wrapper">
-        <nav class="floating-bottom-dock" aria-label="Quick Navigation">
-          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'today' ? 'active' : ''}" data-tab="today" title="${t('tab_today')}">
-            <span class="dock-icon">🏠</span>
-            <span class="dock-label">${t('tab_today')}</span>
+        <nav class="floating-bottom-dock" aria-label="Main Navigation">
+          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'today' ? 'active' : ''}" data-tab="today" title="${t('tab_today')}" aria-label="${t('tab_today')}">
+            <svg class="dock-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 10.5L12 3l9 7.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9.5z"/>
+              <path d="M9 22V12h6v10"/>
+            </svg>
           </button>
-          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'health' ? 'active' : ''}" data-tab="health" title="${t('tab_health')}">
-            <span class="dock-icon">❤️</span>
-            <span class="dock-label">${t('tab_health')}</span>
+          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'health' ? 'active' : ''}" data-tab="health" title="${t('tab_health')}" aria-label="${t('tab_health')}">
+            <svg class="dock-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              <path d="M8.5 12h2l1.5-3 2 6 1.5-3h2" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
           </button>
-          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'trends' ? 'active' : ''}" data-tab="trends" title="${t('tab_trends')}">
-            <span class="dock-icon">📊</span>
-            <span class="dock-label">${t('tab_trends')}</span>
+          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'trends' ? 'active' : ''}" data-tab="trends" title="${t('tab_trends')}" aria-label="${t('tab_trends')}">
+            <svg class="dock-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
           </button>
-          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'profile' ? 'active' : ''}" data-tab="profile" title="${t('tab_profile')}">
-            <span class="dock-icon">
-              ${profile.avatarUrl ? `
+          <button class="dock-nav-item bottom-nav-item ${appState.activeTab === 'profile' ? 'active' : ''}" data-tab="profile" title="${t('tab_profile')}" aria-label="${t('tab_profile')}">
+            ${profile.avatarUrl ? `
+              <span class="dock-avatar-ring">
                 <img src="${profile.avatarUrl}" class="dock-avatar-img" alt="Profile" />
-              ` : `
-                <svg class="dock-profile-svg" viewBox="0 0 24 24" width="20" height="20">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-                </svg>
-              `}
-            </span>
-            <span class="dock-label">${t('tab_profile')}</span>
+              </span>
+            ` : `
+              <svg class="dock-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            `}
           </button>
         </nav>
 
         <button type="button" class="floating-fab-btn" id="global-add-fab-btn" title="${t('fab_add_medicine')}" aria-label="${t('fab_add_medicine')}">
-          <span class="fab-plus-icon">＋</span>
+          <svg class="fab-plus-svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
         </button>
       </div>
     </div>
@@ -1790,6 +1924,84 @@ function renderApp() {
             <button type="submit" class="btn-primary" id="save-edit-med-btn">${t('edit_med_save_btn')}</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <!-- AI Doctor Tiger Interactive Chat Modal -->
+    <dialog id="ai-doctor-modal" class="modal ai-doctor-dialog">
+      <div class="modal-card ai-doctor-modal-wrap">
+        <header class="modal-header ai-doctor-header">
+          <div class="ai-doctor-header-left">
+            <div class="ai-tiger-head-avatar">
+              <svg viewBox="0 0 100 100" width="36" height="36">
+                <!-- Tiger head SVG for header -->
+                <ellipse cx="50" cy="50" rx="36" ry="32" fill="#FF9F43" stroke="#D35400" stroke-width="2" />
+                <path d="M 24 30 C 18 14 32 8 38 20 Z" fill="#FF9F43" stroke="#D35400" stroke-width="1.5" />
+                <path d="M 76 30 C 82 14 68 8 62 20 Z" fill="#FF9F43" stroke="#D35400" stroke-width="1.5" />
+                <path d="M 26 27 C 22 17 30 13 35 21 Z" fill="#FFB8B8" />
+                <path d="M 74 27 C 78 17 70 13 65 21 Z" fill="#FFB8B8" />
+                <ellipse cx="50" cy="60" rx="18" ry="13" fill="#FFFDF5" />
+                <rect x="36" y="16" width="28" height="6" rx="3" fill="#0D9488" />
+                <circle cx="50" cy="19" r="6" fill="#E2E8F0" stroke="#0D9488" stroke-width="1.2" />
+                <path d="M 48 16 h 4 v 6 h -4 Z M 46 18 h 8 v 2 h -8 Z" fill="#0D9488" />
+                <circle cx="38" cy="48" r="4.5" fill="#1E293B" />
+                <circle cx="36.5" cy="46" r="1.5" fill="#FFFFFF" />
+                <circle cx="62" cy="48" r="4.5" fill="#1E293B" />
+                <circle cx="60.5" cy="46" r="1.5" fill="#FFFFFF" />
+                <polygon points="47,55 53,55 50,59" fill="#EE5253" />
+                <path d="M 50 59 Q 46 64 43 62 M 50 59 Q 54 64 57 62" stroke="#2C1810" stroke-width="1.5" fill="none" stroke-linecap="round" />
+              </svg>
+            </div>
+            <div class="ai-doctor-titles">
+              <h3 class="ai-doctor-title">${appState.language === 'bn' ? 'ডাঃ টাইগার এআই' : 'Dr. Tiger AI'} <span class="ai-badge-chip">Gemini</span></h3>
+              <p class="ai-doctor-subtitle">${appState.language === 'bn' ? 'আপনার সার্বক্ষণিক স্বাস্থ্য ও ওষুধ গাইড' : 'Your Personal Health & Meds Assistant'}</p>
+            </div>
+          </div>
+          <div class="ai-doctor-header-actions">
+            <button type="button" class="btn-icon" id="clear-ai-chat-btn" title="${appState.language === 'bn' ? 'চ্যাট মুছে নতুন করুন' : 'Clear Chat'}" aria-label="Clear chat">🧹</button>
+            <button type="button" class="close-btn" id="close-ai-doctor-x" aria-label="Close">&times;</button>
+          </div>
+        </header>
+
+        <!-- Chat messages view -->
+        <div class="ai-chat-body" id="ai-chat-body">
+          <div class="ai-chat-messages" id="ai-chat-messages">
+            <!-- Messages rendered dynamically -->
+          </div>
+
+          <!-- Suggested Quick Prompts -->
+          <div class="ai-quick-prompts-wrapper">
+            <div class="ai-quick-prompts-label">${appState.language === 'bn' ? 'দ্রুত পরামর্শ জানতে ট্যাপ করুন:' : 'Quick Questions:'}</div>
+            <div class="ai-quick-prompts-list" id="ai-quick-prompts-list">
+              <button type="button" class="ai-prompt-chip" data-prompt="${appState.language === 'bn' ? 'আমার আজকের ওষুধগুলোর তালিকা ও নিয়ম কেমন?' : 'Summarize my current medicines and schedule'}">💊 ${appState.language === 'bn' ? 'আমার ওষুধ ও রুটিন' : 'My Medicines'}</button>
+              <button type="button" class="ai-prompt-chip" data-prompt="${appState.language === 'bn' ? 'সুস্থ থাকতে দিনে কতটুকু পানি পান করা উচিত?' : 'How much water should I drink daily?'}">💧 ${appState.language === 'bn' ? 'পানি পানের নিয়ম' : 'Daily Water'}</button>
+              <button type="button" class="ai-prompt-chip" data-prompt="${appState.language === 'bn' ? 'ভালো ও নিরবচ্ছিন্ন ঘুমের জন্য কিছু কার্যকরী টিপস দিন।' : 'Give me tips for better sleep quality.'}">😴 ${appState.language === 'bn' ? 'ভালো ঘুমের উপায়' : 'Sleep Tips'}</button>
+              <button type="button" class="ai-prompt-chip" data-prompt="${appState.language === 'bn' ? 'ওষুধ খাওয়ার সঠিক নিয়ম ও সতর্কতা কী কী?' : 'General guidelines and safety when taking medicine.'}">🩺 ${appState.language === 'bn' ? 'ওষুধের সতর্কতা' : 'Medication Safety'}</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat input bar -->
+        <form class="ai-chat-input-form" id="ai-chat-form">
+          <input 
+            type="text" 
+            id="ai-chat-input" 
+            class="ai-chat-input" 
+            placeholder="${appState.language === 'bn' ? 'ডাঃ টাইগারকে স্বাস্থ্য বা ওষুধ বিষয়ক প্রশ্ন করুন...' : 'Ask Dr. Tiger anything about health or medications...'}" 
+            autocomplete="off" 
+            required 
+          />
+          <button type="submit" class="ai-chat-send-btn" id="ai-chat-send-btn" title="${appState.language === 'bn' ? 'পাঠান' : 'Send'}">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </form>
+
+        <div class="ai-disclaimer-note">
+          <span>⚠️ ${appState.language === 'bn' ? 'ডাঃ টাইগার একটি এআই নির্দেশক। জটিল বা জরুরি চিকিৎসার ক্ষেত্রে সবসময় রেজিস্টার্ড ডাক্তারের পরামর্শ নিন।' : 'Dr. Tiger is an AI assistant. Consult a licensed physician for medical emergencies and clinical diagnoses.'}</span>
+        </div>
       </div>
     </dialog>
   `;
@@ -2303,14 +2515,53 @@ function attachEventListeners() {
   const goalModal = document.getElementById('goal-modal') as HTMLDialogElement;
   const reportModal = document.getElementById('report-modal') as HTMLDialogElement;
   const docViewerModal = document.getElementById('document-viewer-modal') as HTMLDialogElement;
+  const aiDoctorModal = document.getElementById('ai-doctor-modal') as HTMLDialogElement;
 
   // Backdrop click to close modals
-  [vitalsModal, sleepModal, apptModal, profileModal, goalModal, reportModal, editMedModal, docViewerModal].forEach(modal => {
+  [vitalsModal, sleepModal, apptModal, profileModal, goalModal, reportModal, editMedModal, docViewerModal, aiDoctorModal].forEach(modal => {
     modal?.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.close();
       }
     });
+  });
+
+  // AI Doctor Tiger Mascot & Modal Hookup
+  const openAiDoctorBtn = document.getElementById('open-ai-doctor-btn');
+  openAiDoctorBtn?.addEventListener('click', () => openAiDoctorModal());
+  openAiDoctorBtn?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openAiDoctorModal();
+    }
+  });
+
+  document.getElementById('close-ai-doctor-x')?.addEventListener('click', () => {
+    aiDoctorModal?.close();
+  });
+
+  document.getElementById('clear-ai-chat-btn')?.addEventListener('click', () => {
+    clearAiChat();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('.ai-prompt-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const promptText = chip.getAttribute('data-prompt');
+      if (promptText && !isAiDoctorLoading) {
+        handleUserMessageSend(promptText);
+      }
+    });
+  });
+
+  const aiChatForm = document.getElementById('ai-chat-form') as HTMLFormElement;
+  const aiChatInput = document.getElementById('ai-chat-input') as HTMLInputElement;
+  aiChatForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = aiChatInput?.value.trim();
+    if (text && !isAiDoctorLoading) {
+      aiChatInput.value = '';
+      handleUserMessageSend(text);
+    }
   });
 
   // PDF Report Modal Controls
@@ -2802,6 +3053,270 @@ function importData(event: Event) {
   reader.readAsText(file);
 }
 
+// ==========================================
+// Dr. Tiger AI Health Assistant (Powered by Gemini)
+// ==========================================
+interface AiChatMessage {
+  role: 'user' | 'model';
+  text: string;
+  time: string;
+}
+
+const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY as string) || localStorage.getItem('meditrack_gemini_api_key') || '';
+let aiChatHistory: AiChatMessage[] = [];
+let isAiDoctorLoading = false;
+
+function getInitialAiDoctorGreeting(): AiChatMessage {
+  const isBn = appState.language === 'bn';
+  const profile = getUserProfile();
+  const userName = profile.name ? profile.name.trim() : (isBn ? 'বন্ধু' : 'friend');
+
+  return {
+    role: 'model',
+    text: isBn 
+      ? `নমস্কার / আসসালামু আলাইকুম ${userName}! 👋 আমি **ডাঃ টাইগার** (Dr. Tiger) 🐯🩺 আপনার সার্বক্ষণিক এআই স্বাস্থ্য ও ওষুধ সহকারী।\n\nআপনার প্রেসক্রিপশনের ওষুধ, পানি পানের হিসাব, স্বাস্থ্য বা সুস্থতার যেকোনো বিষয়ে পরামর্শের জন্য আমাকে জিজ্ঞেস করতে পারেন! আজ আপনাকে কীভাবে সাহায্য করতে পারি? 🐾`
+      : `Hello ${userName}! 👋 I am **Dr. Tiger** 🐯🩺, your personal AI health & medication guide.\n\nFeel free to ask me anything about your scheduled medicines, hydration, healthy routines, or general wellness. How can I care for you today? 🐾`,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  };
+}
+
+function loadAiChatHistory() {
+  try {
+    const saved = localStorage.getItem('meditrack_ai_chat');
+    if (saved) {
+      aiChatHistory = JSON.parse(saved);
+    }
+  } catch (e) {
+    aiChatHistory = [];
+  }
+  if (!aiChatHistory || aiChatHistory.length === 0) {
+    aiChatHistory = [getInitialAiDoctorGreeting()];
+  }
+}
+
+function buildMediTrackUserContext(): string {
+  const profile = getUserProfile();
+  const meds = getMedicines();
+  const water = getTodayWater();
+  const appData = getAppData();
+  const vitalsLogs = appData.vitalsLogs || [];
+  const lastVitals = vitalsLogs.length > 0 ? vitalsLogs[vitalsLogs.length - 1] : null;
+
+  const medsListStr = meds.length > 0 
+    ? meds.map(m => `- ${m.name} (Dose: ${m.dosage}, Frequency: ${m.frequency}, Timing: ${(m.times && m.times.length) ? m.times.join(', ') : m.time}, Pills remaining: ${m.inventory ?? 'N/A'})`).join('\n')
+    : 'No medicines added yet in user schedule.';
+
+  const bpStr = lastVitals?.bloodPressure 
+    ? `${lastVitals.bloodPressure.systolic}/${lastVitals.bloodPressure.diastolic} mmHg` 
+    : 'Not logged';
+
+  return `
+--- Current User Profile & MediTrack Data ---
+Name: ${profile.name || 'Anonymous User'}
+Gender: ${profile.gender || 'Not specified'}
+Blood Type: ${profile.bloodType || 'Not specified'}
+Height: ${profile.heightCm || 170} cm, Weight: ${profile.weightKg || 70} kg
+Today's Hydration: ${water} ml (Goal: ${appData.settings?.hydrationGoal || 2000} ml)
+Current Active Medicines:
+${medsListStr}
+${lastVitals ? `Recent Vitals (${lastVitals.date}): Blood Pressure: ${bpStr}, Heart Rate: ${lastVitals.heartRate ?? '-'} bpm, Temperature: ${lastVitals.temperature ?? '-'}°F` : ''}
+Preferred App Language: ${appState.language === 'bn' ? 'Bengali (বাংলা)' : 'English'}
+---------------------------------------------
+`.trim();
+}
+
+function formatAiResponse(text: string): string {
+  let escaped = escapeHtml(text);
+  // Bold **text**
+  escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic *text*
+  escaped = escaped.replace(/(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  // Inline code `code`
+  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Convert list lines
+  escaped = escaped.replace(/(?:^|\n)[-*•]\s+([^\n]+)/g, '<li class="ai-bullet-item">$1</li>');
+  escaped = escaped.replace(/(?:^|\n)\d+\.\s+([^\n]+)/g, '<li class="ai-num-item">$1</li>');
+  // Wrap list items
+  escaped = escaped.replace(/(<li class="ai-bullet-item">.*?<\/li>)+/gs, '<ul class="ai-msg-list">$&</ul>');
+  escaped = escaped.replace(/(<li class="ai-num-item">.*?<\/li>)+/gs, '<ol class="ai-msg-list">$&</ol>');
+  // Double newlines
+  escaped = escaped.replace(/\n\n+/g, '<div class="ai-msg-spacer"></div>');
+  // Single newlines
+  escaped = escaped.replace(/\n/g, '<br/>');
+  return escaped;
+}
+
+function renderAiChatMessages() {
+  const container = document.getElementById('ai-chat-messages');
+  if (!container) return;
+
+  const profile = getUserProfile();
+  const firstName = profile.name?.trim() ? profile.name.trim().split(' ')[0] : '';
+  const userAvatarHtml = profile.avatarUrl 
+    ? `<img src="${profile.avatarUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />`
+    : `<span>${firstName ? escapeHtml(firstName[0].toUpperCase()) : '👤'}</span>`;
+
+  let html = '';
+  aiChatHistory.forEach(msg => {
+    if (msg.role === 'user') {
+      html += `
+        <div class="ai-chat-msg-row user">
+          <div class="ai-msg-avatar" title="${escapeHtml(profile.name || 'User')}">${userAvatarHtml}</div>
+          <div class="ai-msg-content">
+            <div class="ai-msg-bubble">${escapeHtml(msg.text)}</div>
+            <div class="ai-msg-time">${msg.time}</div>
+          </div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="ai-chat-msg-row tiger">
+          <div class="ai-msg-avatar" title="ডাঃ টাইগার">🐯</div>
+          <div class="ai-msg-content">
+            <div class="ai-msg-bubble">${formatAiResponse(msg.text)}</div>
+            <div class="ai-msg-time">${msg.time}</div>
+          </div>
+        </div>
+      `;
+    }
+  });
+
+  if (isAiDoctorLoading) {
+    html += `
+      <div class="ai-chat-msg-row tiger ai-typing-row">
+        <div class="ai-msg-avatar">🐯</div>
+        <div class="ai-typing-indicator">
+          <span class="ai-typing-dot"></span>
+          <span class="ai-typing-dot"></span>
+          <span class="ai-typing-dot"></span>
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+function openAiDoctorModal() {
+  const modal = document.getElementById('ai-doctor-modal') as HTMLDialogElement;
+  if (!modal) return;
+  loadAiChatHistory();
+  renderAiChatMessages();
+  modal.showModal();
+  setTimeout(() => {
+    (document.getElementById('ai-chat-input') as HTMLInputElement)?.focus();
+  }, 100);
+}
+
+function clearAiChat() {
+  aiChatHistory = [getInitialAiDoctorGreeting()];
+  localStorage.removeItem('meditrack_ai_chat');
+  renderAiChatMessages();
+}
+
+async function callDrTigerGemini(userMessage: string): Promise<string> {
+  const context = buildMediTrackUserContext();
+  const systemInstructionText = `You are Dr. Tiger (ডাঃ টাইগার) 🐯🩺, an adorable, compassionate, knowledgeable, and cheerful doctor/pediatrician mascot inside the MediTrack health application.
+
+Your core traits & rules:
+1. Warm, caring, respectful, and energetic. Use occasional cute tiger/medical emojis (🐯, 🩺, 🐾, 💊, 💧, ✨).
+2. Always respond in the exact same language the user asks:
+   - If the user talks in Bengali (or Banglish), answer warmly in clear, natural Bengali.
+   - If the user talks in English, answer in polite, clear English.
+3. Use the user's real MediTrack context below to answer questions about their medicines, adherence, vitals, allergies, or water intake accurately.
+4. Keep advice practical, encouraging, and well-structured with short bullet points or concise paragraphs.
+5. Important Safety Disclaimer: You are a friendly AI wellness assistant. For severe symptoms, emergency situations, or prescribing/altering prescription drugs, always advise the user with care to consult their licensed medical professional or local hospital.
+
+${context}`;
+
+  const contentsPayload = [
+    ...aiChatHistory.map(m => ({
+      role: m.role,
+      parts: [{ text: m.text }]
+    })),
+    {
+      role: 'user',
+      parts: [{ text: userMessage }]
+    }
+  ];
+
+  const payload = {
+    systemInstruction: {
+      parts: [{ text: systemInstructionText }]
+    },
+    contents: contentsPayload,
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 800
+    }
+  };
+
+  const models = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+  let lastError: any = null;
+
+  for (const model of models) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+    } catch (err) {
+      console.warn(`Gemini model ${model} attempt failed:`, err);
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('No response from AI model');
+}
+
+async function handleUserMessageSend(text: string) {
+  if (!text.trim() || isAiDoctorLoading) return;
+
+  const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  aiChatHistory.push({
+    role: 'user',
+    text: text.trim(),
+    time: nowTime
+  });
+
+  isAiDoctorLoading = true;
+  renderAiChatMessages();
+
+  try {
+    const replyText = await callDrTigerGemini(text.trim());
+    aiChatHistory.push({
+      role: 'model',
+      text: replyText,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+    localStorage.setItem('meditrack_ai_chat', JSON.stringify(aiChatHistory));
+  } catch (err: any) {
+    console.error('Dr. Tiger Gemini API error:', err);
+    aiChatHistory.push({
+      role: 'model',
+      text: appState.language === 'bn' 
+        ? 'দুঃখিত, সংযোগে কিছুটা বিঘ্ন ঘটেছে! 🐯🐾 অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন বা আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন।'
+        : 'Oops! My stethoscope encountered a temporary connection issue! 🐯🐾 Please try again in a moment.',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+  } finally {
+    isAiDoctorLoading = false;
+    renderAiChatMessages();
+  }
+}
+
 // Initialize
 loadAppState();
+loadAiChatHistory();
 renderApp();
