@@ -1481,11 +1481,6 @@ function renderApp() {
       <!-- Active Tab View Content -->
       ${tabContentHTML}
 
-      <!-- App Footer -->
-      <footer class="app-footer" style="margin-top: 24px; margin-bottom: 20px;">
-        <p class="copyright-text">${appState.language === 'bn' ? 'তৈরি করেছেন' : 'Created by'} <a href="https://www.instagram.com/zhsaikot" target="_blank" rel="noopener noreferrer" class="creator-link">MD. Ziaul Hasan</a></p>
-      </footer>
-
       <!-- Floating Navigation Dock & Quick Add FAB (Mockup Inspired Ultra-Premium) -->
       <div class="floating-dock-wrapper">
         <nav class="floating-bottom-dock" aria-label="Main Navigation">
