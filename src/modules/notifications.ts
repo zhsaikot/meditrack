@@ -4,14 +4,38 @@ import { t } from './i18n';
 import { showMobileNotification, subscribeDeviceToPush, syncPushSubscriptionToServer } from './push';
 
 let reminderInterval: number | null = null;
-const firedMedReminders = new Set<string>();
-const firedWaterBlocks = new Set<string>();
 
+const WATER_REMINDERS_STORAGE_KEY = 'meditrack_fired_water_reminders';
+const MED_REMINDERS_STORAGE_KEY = 'meditrack_fired_med_reminders';
 const APPT_REMINDERS_STORAGE_KEY = 'meditrack_fired_appt_reminders';
+const LAST_WATER_TIME_STORAGE_KEY = 'meditrack_last_water_time';
 
-function getFiredApptReminders(): Set<string> {
+export const TWO_HOURS_MS = 2 * 60 * 60 * 1000; // 2 hours (120 min) strict cooldown
+
+export function getLastWaterActionTimestamp(): number {
   try {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(APPT_REMINDERS_STORAGE_KEY) : null;
+    if (typeof localStorage !== 'undefined') {
+      const val = localStorage.getItem(LAST_WATER_TIME_STORAGE_KEY);
+      if (val) {
+        const num = Number(val);
+        if (!isNaN(num)) return num;
+      }
+    }
+  } catch {}
+  return 0;
+}
+
+export function saveLastWaterActionTimestamp(timestamp: number = Date.now()): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LAST_WATER_TIME_STORAGE_KEY, timestamp.toString());
+    }
+  } catch {}
+}
+
+function getStoredSet(key: string): Set<string> {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
     if (raw) {
       const arr = JSON.parse(raw);
       if (Array.isArray(arr)) return new Set(arr);
@@ -20,18 +44,49 @@ function getFiredApptReminders(): Set<string> {
   return new Set<string>();
 }
 
-function saveFiredApptReminder(key: string): void {
-  const set = getFiredApptReminders();
-  set.add(key);
+function saveStoredSetItem(storageKey: string, item: string): void {
+  const set = getStoredSet(storageKey);
+  set.add(item);
   try {
     if (typeof localStorage !== 'undefined') {
       const arr = Array.from(set).slice(-200);
-      localStorage.setItem(APPT_REMINDERS_STORAGE_KEY, JSON.stringify(arr));
+      localStorage.setItem(storageKey, JSON.stringify(arr));
     }
   } catch {}
 }
 
-const firedApptReminders = getFiredApptReminders();
+export function getFiredWaterReminders(): Set<string> {
+  return getStoredSet(WATER_REMINDERS_STORAGE_KEY);
+}
+
+export function saveFiredWaterReminder(key: string): void {
+  saveStoredSetItem(WATER_REMINDERS_STORAGE_KEY, key);
+}
+
+export function getFiredMedReminders(): Set<string> {
+  return getStoredSet(MED_REMINDERS_STORAGE_KEY);
+}
+
+export function saveFiredMedReminder(key: string): void {
+  saveStoredSetItem(MED_REMINDERS_STORAGE_KEY, key);
+}
+
+export function getFiredApptReminders(): Set<string> {
+  return getStoredSet(APPT_REMINDERS_STORAGE_KEY);
+}
+
+export function saveFiredApptReminder(key: string): void {
+  saveStoredSetItem(APPT_REMINDERS_STORAGE_KEY, key);
+}
+
+export function recordWaterIntakeAction(): void {
+  const now = new Date();
+  saveLastWaterActionTimestamp(now.getTime());
+  const todayDateStr = now.toISOString().split('T')[0];
+  const waterBlockHour = Math.floor(now.getHours() / 2) * 2;
+  const waterBlockKey = `${todayDateStr}_water_${waterBlockHour}`;
+  saveFiredWaterReminder(waterBlockKey);
+}
 
 export interface PendingMedItem {
   id: string;
@@ -259,13 +314,19 @@ export function startReminderScheduler(
     const nowMinutes = currentHour * 60 + currentMinute;
 
     // 1. Water Reminder Check (Every 2 hours during daytime 08:00 - 22:00)
-    // 2-hour daytime blocks: 8, 10, 12, 14, 16, 18, 20, 22
+    // Strict 2-hour (120 minutes) cooldown from last intake or reminder
     if (currentHour >= 8 && currentHour <= 22) {
+      const lastWaterTime = getLastWaterActionTimestamp();
+      const timeSinceLastWater = now.getTime() - lastWaterTime;
       const waterBlockHour = Math.floor(currentHour / 2) * 2;
       const waterBlockKey = `${todayDateStr}_water_${waterBlockHour}`;
-      
-      if (!firedWaterBlocks.has(waterBlockKey)) {
-        firedWaterBlocks.add(waterBlockKey);
+      const firedWater = getFiredWaterReminders();
+
+      const hasCooledDown = lastWaterTime === 0 || timeSinceLastWater >= TWO_HOURS_MS;
+      if (hasCooledDown && !firedWater.has(waterBlockKey)) {
+        saveFiredWaterReminder(waterBlockKey);
+        saveLastWaterActionTimestamp(now.getTime());
+
         const title = t('water_reminder_title');
         const body = t('water_reminder_body');
         sendLocalNotification(title, body, {
@@ -283,7 +344,10 @@ export function startReminderScheduler(
           title,
           message: body,
           actionText: t('toast_add_water_btn'),
-          onAction: () => callbacks?.onAddWater?.()
+          onAction: () => {
+            callbacks?.onAddWater?.();
+            recordWaterIntakeAction();
+          }
         });
       }
     }
@@ -303,8 +367,9 @@ export function startReminderScheduler(
       const remindedKey = `${todayDateStr}_med_${med.id}_${med.doseIndex}`;
 
       // Trigger if due now OR within 20 minutes grace period, and not yet reminded today
-      if (diff >= 0 && diff <= 20 && !firedMedReminders.has(remindedKey)) {
-        firedMedReminders.add(remindedKey);
+      const firedMeds = getFiredMedReminders();
+      if (diff >= 0 && diff <= 20 && !firedMeds.has(remindedKey)) {
+        saveFiredMedReminder(remindedKey);
         const title = t('med_reminder_title');
         const body = t('med_reminder_body', { name: med.name, dosage: med.dosage });
         const targetUrl = `/?action=take&id=${encodeURIComponent(med.id)}&dose=${med.doseIndex}`;
@@ -351,10 +416,11 @@ export function startReminderScheduler(
         const diffMs = targetTimestamp - nowTimestamp;
         const diffMinutes = Math.round(diffMs / (1000 * 60));
 
+        const firedAppts = getFiredApptReminders();
+
         // 12-Hour Reminder (~720 minutes remaining): window between 690 and 720 minutes
         const key12h = `${appt.id}_12h`;
-        if (diffMinutes >= 690 && diffMinutes <= 720 && !firedApptReminders.has(key12h)) {
-          firedApptReminders.add(key12h);
+        if (diffMinutes >= 690 && diffMinutes <= 720 && !firedAppts.has(key12h)) {
           saveFiredApptReminder(key12h);
 
           const title = t('appt_reminder_12h_title');
@@ -390,8 +456,7 @@ export function startReminderScheduler(
 
         // 1-Hour Reminder (~60 minutes remaining): window between 40 and 60 minutes
         const key1h = `${appt.id}_1h`;
-        if (diffMinutes >= 40 && diffMinutes <= 60 && !firedApptReminders.has(key1h)) {
-          firedApptReminders.add(key1h);
+        if (diffMinutes >= 40 && diffMinutes <= 60 && !firedAppts.has(key1h)) {
           saveFiredApptReminder(key1h);
 
           const title = t('appt_reminder_1h_title');

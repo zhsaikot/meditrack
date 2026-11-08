@@ -289,6 +289,22 @@ export function addWater(amount: number): void {
   }
   
   saveAppData(data);
+
+  // Record hydration action timestamp and mark current 2-hour window as fulfilled
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const now = new Date();
+      localStorage.setItem('meditrack_last_water_time', now.getTime().toString());
+      const waterBlockHour = Math.floor(now.getHours() / 2) * 2;
+      const key = `${today}_water_${waterBlockHour}`;
+      const raw = localStorage.getItem('meditrack_fired_water_reminders');
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr) && !arr.includes(key)) {
+        arr.push(key);
+        localStorage.setItem('meditrack_fired_water_reminders', JSON.stringify(arr.slice(-200)));
+      }
+    }
+  } catch {}
 }
 
 export function resetWaterIfNewDay(): void {

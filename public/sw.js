@@ -1,5 +1,5 @@
 // MediTrack Service Worker - Cloud Web Push & Mobile Notification Handler
-// Version: 1.1.0
+// Version: 1.2.0
 
 const CACHE_NAME = 'meditrack-v1';
 
@@ -116,12 +116,9 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
 
-      // If a window is already open, focus it and navigate
+      // If a window is already open, focus it without hard reloading
       for (const client of clientList) {
-        if (client.url && 'focus' in client) {
-          if ('navigate' in client && targetUrl !== '/') {
-            client.navigate(targetUrl);
-          }
+        if ('focus' in client) {
           return client.focus();
         }
       }
