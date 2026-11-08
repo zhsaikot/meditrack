@@ -15,24 +15,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { subscription, title, body, icon, url, data } = req.body || {};
+  const { subscription, title, body, icon, url, data, actions, language } = req.body || {};
 
   if (!subscription || !subscription.endpoint) {
     return res.status(400).json({ error: 'Missing subscription object' });
   }
 
+  const isEn = language === 'en' || data?.language === 'en';
+  const type = data?.type || 'medicine';
+
+  let resolvedActions = actions;
+  if (!resolvedActions || resolvedActions.length === 0) {
+    if (type === 'water') {
+      resolvedActions = [
+        { action: 'water', title: isEn ? '💧 Drank Water' : '💧 পানি খেয়েছি' },
+        { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+      ];
+    } else if (type === 'appointment') {
+      resolvedActions = [
+        { action: 'view_appt', title: isEn ? '📋 View Details' : '📋 বিস্তারিত দেখুন' },
+        { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+      ];
+    } else {
+      resolvedActions = [
+        { action: 'take', title: isEn ? '✓ Took Medicine' : '✓ ঔষধ খেয়েছি' },
+        { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+      ];
+    }
+  }
+
   const payload = JSON.stringify({
-    title: title || 'MediTrack রিমাইন্ডার',
-    body: body || 'আপনার স্বাস্থ্য সম্পর্কিত রিমাইন্ডার চেক করুন।',
+    title: title || (isEn ? 'MediTrack Reminder' : 'MediTrack রিমাইন্ডার'),
+    body: body || (isEn ? 'Check your health reminder.' : 'আপনার স্বাস্থ্য সম্পর্কিত রিমাইন্ডার চেক করুন।'),
     icon: icon || '/favicon.svg',
     badge: '/favicon.svg',
-    tag: 'meditrack-reminder',
+    tag: data?.tag || 'meditrack-reminder',
     url: url || '/',
     data: data || {},
-    actions: [
-      { action: 'take', title: '✓ ঔষধ খেয়েছি' },
-      { action: 'dismiss', title: 'বন্ধ করুন' }
-    ]
+    actions: resolvedActions
   });
 
   try {

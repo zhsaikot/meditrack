@@ -109,15 +109,38 @@ export function playNotificationSound(): void {
   }
 }
 
-export function sendLocalNotification(title: string, body: string, icon: string = '/favicon.svg', url: string = '/'): void {
+export interface LocalNotificationOptions {
+  icon?: string;
+  url?: string;
+  type?: 'water' | 'medicine' | 'appointment' | 'test' | 'general';
+  actions?: Array<{ action: string; title: string }>;
+  data?: any;
+}
+
+export function sendLocalNotification(
+  title: string,
+  body: string,
+  iconOrOptions: string | LocalNotificationOptions = '/favicon.svg',
+  urlFallback: string = '/'
+): void {
   playNotificationSound();
+
+  let options: LocalNotificationOptions;
+  if (typeof iconOrOptions === 'string') {
+    options = { icon: iconOrOptions, url: urlFallback };
+  } else {
+    options = iconOrOptions;
+  }
 
   if (isNotificationSupported() && Notification.permission === 'granted') {
     showMobileNotification(title, body, {
-      icon,
-      badge: icon,
+      icon: options.icon || '/favicon.svg',
+      badge: options.icon || '/favicon.svg',
       tag: 'meditrack-reminder',
-      url
+      url: options.url || '/',
+      type: options.type,
+      actions: options.actions,
+      data: options.data
     }).catch((err) => {
       console.warn('Failed to dispatch mobile notification:', err);
     });
@@ -245,7 +268,16 @@ export function startReminderScheduler(
         firedWaterBlocks.add(waterBlockKey);
         const title = t('water_reminder_title');
         const body = t('water_reminder_body');
-        sendLocalNotification(title, body);
+        sendLocalNotification(title, body, {
+          icon: '/favicon.svg',
+          url: '/?action=water',
+          type: 'water',
+          actions: [
+            { action: 'water', title: t('notif_drink_water') },
+            { action: 'dismiss', title: t('notif_dismiss') }
+          ],
+          data: { type: 'water', url: '/?action=water' }
+        });
         showInAppToast({
           icon: '💧',
           title,
@@ -275,8 +307,23 @@ export function startReminderScheduler(
         firedMedReminders.add(remindedKey);
         const title = t('med_reminder_title');
         const body = t('med_reminder_body', { name: med.name, dosage: med.dosage });
+        const targetUrl = `/?action=take&id=${encodeURIComponent(med.id)}&dose=${med.doseIndex}`;
         
-        sendLocalNotification(title, body);
+        sendLocalNotification(title, body, {
+          icon: '/favicon.svg',
+          url: targetUrl,
+          type: 'medicine',
+          actions: [
+            { action: 'take', title: t('notif_take_med') },
+            { action: 'dismiss', title: t('notif_dismiss') }
+          ],
+          data: {
+            type: 'medicine',
+            id: med.id,
+            doseIndex: med.doseIndex,
+            url: targetUrl
+          }
+        });
         showInAppToast({
           icon: '💊',
           title,
@@ -315,8 +362,22 @@ export function startReminderScheduler(
             doctor: appt.doctor || appt.title,
             time: appt.time
           });
+          const targetUrl = `/?action=view_appt&id=${encodeURIComponent(appt.id)}`;
 
-          sendLocalNotification(title, body);
+          sendLocalNotification(title, body, {
+            icon: '/favicon.svg',
+            url: targetUrl,
+            type: 'appointment',
+            actions: [
+              { action: 'view_appt', title: t('notif_view_appt') },
+              { action: 'dismiss', title: t('notif_dismiss') }
+            ],
+            data: {
+              type: 'appointment',
+              id: appt.id,
+              url: targetUrl
+            }
+          });
           showInAppToast({
             icon: '📅',
             title,
@@ -339,8 +400,22 @@ export function startReminderScheduler(
             time: appt.time,
             location: appt.location ? `(${appt.location})` : ''
           });
+          const targetUrl = `/?action=view_appt&id=${encodeURIComponent(appt.id)}`;
 
-          sendLocalNotification(title, body);
+          sendLocalNotification(title, body, {
+            icon: '/favicon.svg',
+            url: targetUrl,
+            type: 'appointment',
+            actions: [
+              { action: 'view_appt', title: t('notif_view_appt') },
+              { action: 'dismiss', title: t('notif_dismiss') }
+            ],
+            data: {
+              type: 'appointment',
+              id: appt.id,
+              url: targetUrl
+            }
+          });
           showInAppToast({
             icon: '⏰',
             title,
@@ -366,7 +441,16 @@ export function triggerTestReminder(callbacks?: {
 }): void {
   const title = t('test_reminder_btn');
   const body = t('test_reminder_toast');
-  sendLocalNotification(title, body);
+  sendLocalNotification(title, body, {
+    icon: '/favicon.svg',
+    url: '/?action=water',
+    type: 'water',
+    actions: [
+      { action: 'water', title: t('notif_drink_water') },
+      { action: 'dismiss', title: t('notif_dismiss') }
+    ],
+    data: { type: 'water', url: '/?action=water' }
+  });
   showInAppToast({
     icon: '🔔',
     title,

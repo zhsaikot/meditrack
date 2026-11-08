@@ -1,4 +1,6 @@
 // MediTrack - Web Push & Service Worker Client Module
+import { getAppLanguage } from '../storage';
+
 export const DEFAULT_VAPID_PUBLIC_KEY = 'BNK2UiDoqjrHJedNeCcFRuFuw4iuWRNM8OBqhX_WVJfURvOrDVcf9-ikcPjPSd4KPn40wKAdg54TKWDoHaYaWbA';
 
 export function getVapidPublicKey(): string {
@@ -62,14 +64,17 @@ export async function subscribeDeviceToPush(vapidPublicKey?: string): Promise<Pu
 
 export async function syncPushSubscriptionToServer(
   subscription: PushSubscription,
-  remindersPayload?: any
+  remindersPayload?: any,
+  language?: 'en' | 'bn'
 ): Promise<boolean> {
+  const currentLang = language || getAppLanguage();
   try {
     const res = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         subscription,
+        language: currentLang,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         reminders: remindersPayload || []
       })
@@ -81,14 +86,51 @@ export async function syncPushSubscriptionToServer(
   }
 }
 
+export interface MobileNotificationOptions extends NotificationOptions {
+  url?: string;
+  type?: 'water' | 'medicine' | 'appointment' | 'test' | 'general';
+  actions?: Array<{ action: string; title: string }>;
+  language?: 'en' | 'bn';
+  data?: any;
+}
+
+export function getDefaultNotificationActions(
+  type?: string,
+  lang: 'en' | 'bn' = getAppLanguage()
+): Array<{ action: string; title: string }> {
+  const isEn = lang === 'en';
+  if (type === 'water') {
+    return [
+      { action: 'water', title: isEn ? '💧 Drank Water' : '💧 পানি খেয়েছি' },
+      { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+    ];
+  }
+  if (type === 'appointment') {
+    return [
+      { action: 'view_appt', title: isEn ? '📋 View Details' : '📋 বিস্তারিত দেখুন' },
+      { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+    ];
+  }
+  return [
+    { action: 'take', title: isEn ? '✓ Took Medicine' : '✓ ঔষধ খেয়েছি' },
+    { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+  ];
+}
+
 export async function showMobileNotification(
   title: string,
   body: string,
-  options?: NotificationOptions & { url?: string }
+  options?: MobileNotificationOptions
 ): Promise<boolean> {
   if (typeof window === 'undefined') return false;
 
   const reg = await registerServiceWorker();
+  const currentLang = options?.language || getAppLanguage();
+  const notificationType = options?.type || options?.data?.type || 'medicine';
+  const actions = (options?.actions && options.actions.length > 0)
+    ? options.actions
+    : getDefaultNotificationActions(notificationType, currentLang);
+
   if (reg && 'showNotification' in reg) {
     const finalOptions: any = {
       body,
@@ -96,11 +138,13 @@ export async function showMobileNotification(
       badge: options?.badge || '/favicon.svg',
       tag: options?.tag || 'meditrack-reminder',
       vibrate: [200, 100, 200],
-      data: options?.data || { url: options?.url || '/' },
-      actions: (options as any)?.actions || [
-        { action: 'take', title: '✓ ঔষধ খেয়েছি' },
-        { action: 'dismiss', title: 'বন্ধ করুন' }
-      ]
+      data: {
+        url: options?.url || '/',
+        type: notificationType,
+        language: currentLang,
+        ...(options?.data || {})
+      },
+      actions: actions
     };
     try {
       await reg.showNotification(title, finalOptions);

@@ -1,5 +1,5 @@
 // MediTrack Service Worker - Cloud Web Push & Mobile Notification Handler
-// Version: 1.0.0
+// Version: 1.1.0
 
 const CACHE_NAME = 'meditrack-v1';
 
@@ -11,15 +11,37 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+function getDefaultActions(type, language) {
+  const isEn = language === 'en';
+  if (type === 'water') {
+    return [
+      { action: 'water', title: isEn ? '💧 Drank Water' : '💧 পানি খেয়েছি' },
+      { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+    ];
+  }
+  if (type === 'appointment') {
+    return [
+      { action: 'view_appt', title: isEn ? '📋 View Details' : '📋 বিস্তারিত দেখুন' },
+      { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+    ];
+  }
+  return [
+    { action: 'take', title: isEn ? '✓ Took Medicine' : '✓ ঔষধ খেয়েছি' },
+    { action: 'dismiss', title: isEn ? 'Dismiss' : 'বন্ধ করুন' }
+  ];
+}
+
 // Handle incoming Web Push notification from server
 self.addEventListener('push', (event) => {
   let data = {
     title: 'MediTrack Reminder',
-    body: 'আপনার স্বাস্থ্য রিমাইন্ডার চেক করুন।',
+    body: 'Time for your health reminder.',
     icon: '/favicon.svg',
     badge: '/favicon.svg',
     tag: 'meditrack-reminder',
     url: '/',
+    language: 'en',
+    type: 'general',
     actions: []
   };
 
@@ -32,11 +54,10 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // Ensure default interactive actions for medicine reminders if none provided
-  const actions = (data.actions && data.actions.length > 0) ? data.actions : [
-    { action: 'take', title: '✓ ঔষধ খেয়েছি' },
-    { action: 'dismiss', title: 'বন্ধ করুন' }
-  ];
+  // Ensure contextual actions based on type and language if none provided
+  const actions = (data.actions && data.actions.length > 0)
+    ? data.actions
+    : getDefaultActions(data.type, data.language);
 
   const notificationOptions = {
     body: data.body,
@@ -49,7 +70,8 @@ self.addEventListener('push', (event) => {
       url: data.url || '/',
       id: data.id,
       doseIndex: data.doseIndex,
-      type: data.type || 'general'
+      type: data.type || 'general',
+      language: data.language || 'en'
     },
     actions: actions
   };
@@ -65,9 +87,22 @@ self.addEventListener('notificationclick', (event) => {
 
   const action = event.action;
   const notificationData = event.notification.data || {};
-  const targetUrl = notificationData.url || '/';
+  let targetUrl = notificationData.url || '/';
 
-  // Broadcast action to active clients (e.g. to mark dose taken directly)
+  if (action === 'dismiss') {
+    return;
+  }
+
+  // If user clicked specific action and URL does not already have action query param, append it
+  if (action === 'water' && !targetUrl.includes('action=')) {
+    targetUrl = targetUrl + (targetUrl.includes('?') ? '&' : '?') + 'action=water';
+  } else if (action === 'take' && notificationData.id && !targetUrl.includes('action=')) {
+    targetUrl = targetUrl + (targetUrl.includes('?') ? '&' : '?') + `action=take&id=${encodeURIComponent(notificationData.id)}&dose=${notificationData.doseIndex ?? 0}`;
+  } else if (action === 'view_appt') {
+    targetUrl = targetUrl + (targetUrl.includes('?') ? '&' : '?') + `action=view_appt&id=${encodeURIComponent(notificationData.id || '')}`;
+  }
+
+  // Broadcast action to active clients (e.g. to mark dose taken or water drank directly)
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Notify active client if window is open

@@ -348,6 +348,13 @@ const translations: Record<Language, Record<string, string>> = {
     toast_mark_taken_btn: 'Mark Taken',
     toast_water_success: 'Logged 250ml water! 💧',
     toast_med_success: 'Dose marked as taken! ✨',
+    notif_take_med: '✓ Took Medicine',
+    notif_drink_water: '💧 Drank Water',
+    notif_view_appt: '📋 View Details',
+    notif_dismiss: 'Dismiss',
+    notif_welcome_title: 'MediTrack Notifications Active! 🔔',
+    notif_welcome_body: 'Your health and medicine reminders will now appear in your notification bar.',
+    notif_welcome_btn: 'Open MediTrack',
 
     // Profile Backup & Restore Section
     backup_section_title: 'Data Backup & Restore',
@@ -704,6 +711,13 @@ const translations: Record<Language, Record<string, string>> = {
     toast_mark_taken_btn: 'খেয়েছি ✓',
     toast_water_success: '২৫০ মিলি পানি যোগ করা হয়েছে! 💧',
     toast_med_success: 'ওষুধ গ্রহণ সম্পন্ন হয়েছে! ✨',
+    notif_take_med: '✓ ঔষধ খেয়েছি',
+    notif_drink_water: '💧 পানি খেয়েছি',
+    notif_view_appt: '📋 বিস্তারিত দেখুন',
+    notif_dismiss: 'বন্ধ করুন',
+    notif_welcome_title: 'MediTrack নোটিফিকেশন সক্রিয় হয়েছে! 🔔',
+    notif_welcome_body: 'আপনার স্বাস্থ্য ও ঔষধের রিমাইন্ডার এখন সরাসরি নোটিফিকেশন বারে চলে আসবে।',
+    notif_welcome_btn: 'MediTrack খুলুন',
 
     // Profile Backup & Restore Section
     backup_section_title: 'ডাটা ব্যাকআপ ও রিস্টোর',

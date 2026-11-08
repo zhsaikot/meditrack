@@ -73,7 +73,7 @@ import {
 } from './modules/trends'
 import { printDoctorReport, downloadPDFReport } from './modules/report'
 import { t, setLanguage, formatNumber, Language } from './modules/i18n'
-import { registerServiceWorker } from './modules/push'
+import { registerServiceWorker, subscribeDeviceToPush, syncPushSubscriptionToServer } from './modules/push'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -2066,6 +2066,11 @@ function attachEventListeners() {
     appState.language = newLang;
     setAppLanguage(newLang);
     setLanguage(newLang);
+    if (appState.notificationsEnabled) {
+      subscribeDeviceToPush().then((sub) => {
+        if (sub) syncPushSubscriptionToServer(sub, undefined, newLang);
+      });
+    }
     renderApp();
   });
 
@@ -2615,10 +2620,16 @@ function attachEventListeners() {
 
   // Profile: Preferences & Settings Controls
   document.getElementById('modal-toggle-lang-btn')?.addEventListener('click', () => {
-    appState.language = appState.language === 'en' ? 'bn' : 'en';
-    setAppLanguage(appState.language);
-    setLanguage(appState.language);
+    const newLang: Language = appState.language === 'en' ? 'bn' : 'en';
+    appState.language = newLang;
+    setAppLanguage(newLang);
+    setLanguage(newLang);
     saveAppState();
+    if (appState.notificationsEnabled) {
+      subscribeDeviceToPush().then((sub) => {
+        if (sub) syncPushSubscriptionToServer(sub, undefined, newLang);
+      });
+    }
     renderApp();
     if (profileModal?.open) {
       openProfileModal();
@@ -3312,9 +3323,39 @@ async function handleUserMessageSend(text: string) {
   }
 }
 
+// Handle direct action from notification URL (e.g. if opened fresh from notification tap)
+function handleNotificationUrlAction() {
+  if (typeof window === 'undefined') return;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    if (!action) return;
+
+    if (action === 'water') {
+      addWater(250);
+      showQuickToast(t('toast_water_success'), '💧');
+    } else if (action === 'take') {
+      const id = params.get('id');
+      const dose = parseInt(params.get('dose') || '0', 10);
+      if (id) {
+        markMedicineTaken(id, dose);
+        showQuickToast(t('toast_med_success'), '✨');
+      }
+    } else if (action === 'view_appt') {
+      appState.activeTab = 'health';
+    }
+
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+  } catch (e) {
+    console.warn('Error handling notification URL action:', e);
+  }
+}
+
 // Initialize
 loadAppState();
 loadAiChatHistory();
+handleNotificationUrlAction();
 renderApp();
 
 // Register Service Worker & handle mobile notification actions
@@ -3323,13 +3364,22 @@ registerServiceWorker().then(() => {
     navigator.serviceWorker.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'NOTIFICATION_ACTION_CLICK') {
         const { action, data } = event.data;
-        if (action === 'take' && data?.id && typeof data?.doseIndex === 'number') {
+        if (action === 'water') {
+          addWater(250);
+          showQuickToast(t('toast_water_success'), '💧');
+          renderApp();
+        } else if (action === 'take' && data?.id && typeof data?.doseIndex === 'number') {
           markMedicineTaken(data.id, data.doseIndex);
           showQuickToast(t('toast_med_success'), '✨');
           renderApp();
         } else if (action === 'skip' && data?.id && typeof data?.doseIndex === 'number') {
           markMedicineSkipped(data.id, data.doseIndex);
           renderApp();
+        } else if (action === 'view_appt') {
+          if (appState.activeTab !== 'health') {
+            appState.activeTab = 'health';
+            renderApp();
+          }
         }
       }
     });

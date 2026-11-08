@@ -15,23 +15,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { subscription, timezone, reminders } = req.body || {};
+  const { subscription, timezone, reminders, language } = req.body || {};
 
   if (!subscription || !subscription.endpoint) {
     return res.status(400).json({ error: 'Valid push subscription is required' });
   }
 
+  const isEn = language === 'en';
+
   // Send a confirmation push notification to verify the device
   try {
     const confirmationPayload = JSON.stringify({
-      title: 'MediTrack নোটিফিকেশন সক্রিয় হয়েছে! 🔔',
-      body: 'আপনার স্বাস্থ্য রিমাইন্ডার এখন থেকে সরাসরি নোটিফিকেশন বারে চলে আসবে।',
+      title: isEn ? 'MediTrack Notifications Active! 🔔' : 'MediTrack নোটিফিকেশন সক্রিয় হয়েছে! 🔔',
+      body: isEn
+        ? 'Your health reminders will now appear directly in your notification bar.'
+        : 'আপনার স্বাস্থ্য রিমাইন্ডার এখন থেকে সরাসরি নোটিফিকেশন বারে চলে আসবে।',
       icon: '/favicon.svg',
       badge: '/favicon.svg',
       tag: 'meditrack-welcome',
       url: '/',
+      language: isEn ? 'en' : 'bn',
+      type: 'general',
       actions: [
-        { action: 'open', title: 'MediTrack খুলুন' }
+        { action: 'open', title: isEn ? 'Open MediTrack' : 'MediTrack খুলুন' }
       ]
     });
 
@@ -69,8 +75,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           headers,
           body: JSON.stringify({
             subscription,
-            title: reminder.title || 'MediTrack রিমাইন্ডার 💊',
-            body: reminder.body || 'আপনার ঔষধ গ্রহণের সময় হয়েছে।',
+            language: isEn ? 'en' : 'bn',
+            title: reminder.title || (isEn ? 'MediTrack Reminder 💊' : 'MediTrack রিমাইন্ডার 💊'),
+            body: reminder.body || (isEn ? 'Time for your scheduled reminder.' : 'আপনার ঔষধ গ্রহণের সময় হয়েছে।'),
             url: reminder.url || '/',
             data: reminder.data || {}
           })
