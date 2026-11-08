@@ -73,6 +73,7 @@ import {
 } from './modules/trends'
 import { printDoctorReport, downloadPDFReport } from './modules/report'
 import { t, setLanguage, formatNumber, Language } from './modules/i18n'
+import { registerServiceWorker } from './modules/push'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -3315,3 +3316,22 @@ async function handleUserMessageSend(text: string) {
 loadAppState();
 loadAiChatHistory();
 renderApp();
+
+// Register Service Worker & handle mobile notification actions
+registerServiceWorker().then(() => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'NOTIFICATION_ACTION_CLICK') {
+        const { action, data } = event.data;
+        if (action === 'take' && data?.id && typeof data?.doseIndex === 'number') {
+          markMedicineTaken(data.id, data.doseIndex);
+          showQuickToast(t('toast_med_success'), '✨');
+          renderApp();
+        } else if (action === 'skip' && data?.id && typeof data?.doseIndex === 'number') {
+          markMedicineSkipped(data.id, data.doseIndex);
+          renderApp();
+        }
+      }
+    });
+  }
+});

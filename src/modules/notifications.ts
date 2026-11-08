@@ -1,6 +1,7 @@
 // MediTrack - Notifications & Reminders Module
 import { Appointment } from '../types';
 import { t } from './i18n';
+import { showMobileNotification, subscribeDeviceToPush, syncPushSubscriptionToServer } from './push';
 
 let reminderInterval: number | null = null;
 const firedMedReminders = new Set<string>();
@@ -53,7 +54,18 @@ export async function requestNotificationPermission(): Promise<boolean> {
   if (!isNotificationSupported()) return false;
   try {
     const permission = await Notification.requestPermission();
-    return permission === 'granted';
+    if (permission === 'granted') {
+      try {
+        const sub = await subscribeDeviceToPush();
+        if (sub) {
+          await syncPushSubscriptionToServer(sub);
+        }
+      } catch (e) {
+        console.warn('Web push subscription background setup:', e);
+      }
+      return true;
+    }
+    return false;
   } catch (error) {
     console.error('Error requesting notification permission:', error);
     return false;
@@ -97,32 +109,18 @@ export function playNotificationSound(): void {
   }
 }
 
-export function sendLocalNotification(title: string, body: string, icon: string = '/favicon.svg'): void {
+export function sendLocalNotification(title: string, body: string, icon: string = '/favicon.svg', url: string = '/'): void {
   playNotificationSound();
 
   if (isNotificationSupported() && Notification.permission === 'granted') {
-    try {
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then((reg) => {
-          reg.showNotification(title, {
-            body,
-            icon,
-            badge: icon,
-            tag: 'meditrack-reminder'
-          });
-        }).catch(() => {
-          new Notification(title, { body, icon });
-        });
-      } else {
-        new Notification(title, {
-          body,
-          icon,
-          badge: icon
-        });
-      }
-    } catch {
-      // In-App Toast always serves as 100% reliable fallback
-    }
+    showMobileNotification(title, body, {
+      icon,
+      badge: icon,
+      tag: 'meditrack-reminder',
+      url
+    }).catch((err) => {
+      console.warn('Failed to dispatch mobile notification:', err);
+    });
   }
 }
 
